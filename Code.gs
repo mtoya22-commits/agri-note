@@ -20,8 +20,8 @@
  * 集計は別のシートで行ってください。updatedAt / deletedAt / version / changeSeq の4列は
  * 同期用なので触らないでください（触ろうとすると警告が出ます）。
  *
- * v5 の追加：plantings の右端に spots 列（畝の中の位置）を足しました。
- *   古いシートは、最初の読み書きのときに見出しを自動で1列追加します（既存の行はそのまま）。
+ * v5 の追加：plantings の右端に spots 列（畝の中の位置）と variety 列（品種）を足しました。
+ *   古いシートは、最初の読み書きのときに見出しを自動で追加します（既存の行はそのまま）。
  *   書き方の例：株170 ／ 群300-390×3 ／ 帯300-390 ／ 修飾「/幅0-35」「/終2026-08-01」「/区画」
  */
 
@@ -34,10 +34,10 @@ const BASE = {
   frost:     ['id','targetNight','forecastCapturedAt','tmin','cloud','wind','risk','observed'],
   settings:  ['id','value']
 };
-const ADDED = { plantings: ['spots'] };
+const ADDED = { plantings: ['spots', 'variety'] };
 const TABLES = {};
 Object.keys(BASE).forEach(function (t) { TABLES[t] = BASE[t].concat(META, ADDED[t] || []); });
-const TEXT_COLS = ['id','plantingId','slots','memo','value','taskId','cropId','bedId','type','status','risk','observed','spots'];
+const TEXT_COLS = ['id','plantingId','slots','memo','value','taskId','cropId','bedId','type','status','risk','observed','spots','variety'];
 
 /* ---------------- 入口 ---------------- */
 function doGet(e) {

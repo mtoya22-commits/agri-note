@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>畑ノート</title>
+<meta name="description" content="畝と区画の作付けから、今週やることと手順を自動で出す家庭菜園ノート">
+<meta name="theme-color" content="#f1f3ed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14170f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="畑ノート">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@600;700&display=swap">
+<style>
+[hidden]{display:none!important}
+/*__STYLE__*/
+</style>
+<script>try{var t=localStorage.getItem("hatake-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brandrow">
+      <h1>畑ノート</h1>
+      <div class="today" id="todayLabel"></div>
+      <button class="syncdot" id="syncDot" data-act="go-settings" hidden><i></i><span></span></button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-week"  aria-selected="true"  aria-controls="panel-week">今週</button>
+      <button role="tab" id="tab-field" aria-selected="false" aria-controls="panel-field">畑</button>
+      <button role="tab" id="tab-log"   aria-selected="false" aria-controls="panel-log">記録</button>
+      <button role="tab" id="tab-set"   aria-selected="false" aria-controls="panel-set">設定</button>
+    </div>
+  </header>
+  <main>
+    <section id="panel-week"  role="tabpanel" aria-labelledby="tab-week"></section>
+    <section id="panel-field" role="tabpanel" aria-labelledby="tab-field" hidden></section>
+    <section id="panel-log"   role="tabpanel" aria-labelledby="tab-log" hidden></section>
+    <section id="panel-set"   role="tabpanel" aria-labelledby="tab-set" hidden></section>
+  </main>
+</div>
+<div class="backdrop" id="backdrop" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+<!--__DATA__-->
+<script src="app.js"></script>
+</body>
+</html>

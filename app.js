@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.3";
+const APP_VERSION = "5.4";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -102,7 +102,8 @@ const bedOf    = p => bedById(p.bedId || slotBed((p.slots||[])[0]));
      まとまり { kind:"group", from, to, n, rows } … その群植が占有する栽培スペース（両端の半株間を含む）と株数・条数。
                                                   株が並んでいる範囲（最初〜最後の株の中心）ではない。
                                                   例：5株・2条・株間30cm → 90cm＝15｜●─30─●─30─●｜15。
-                                                  個々の株の位置は保存せず、必要なときに groupCenters() で計算する
+                                                  個々の株の位置は保存せず、必要なときに groupCenters() で計算する。
+                                                  lost＝どれか不明の減少数、ended＝終わった株 [{row, index, endDate}]（n は変えない）
      帯      { kind:"band",  from, to }          … すじまき・点まきの範囲
    共通の任意項目：crossFrom / crossTo（幅方向。未指定＝畝の幅全体）、endDate（その位置だけ終わった日）、
    precision（"slot"＝4区画から変換した粗い位置／"exact"＝畝の中で置いた位置）
@@ -200,6 +201,8 @@ function spotsText(p){
   return p.spots.map(sp=>{
     let t = sp.kind==="plant" ? `株${sp.center}${sp.space>0?`/間${sp.space}`:""}` : sp.kind==="group" ? `群${sp.from}-${sp.to}×${sp.n||1}${(sp.rows||1)>1?`/${sp.rows}条`:""}` : `帯${sp.from}-${sp.to}`;
     if(sp.crossFrom!=null && sp.crossTo!=null) t += `/幅${sp.crossFrom}-${sp.crossTo}`;
+    if(sp.kind==="group" && sp.lost) t += `/減${sp.lost}`;
+    if(sp.kind==="group") (sp.ended||[]).forEach(e=>{ t += `/終株${e.row}-${e.index}@${e.endDate}`; });
     if(sp.endDate) t += `/終${sp.endDate}`;
     if(sp.precision==="slot") t += "/区画";
     return t;
@@ -222,6 +225,8 @@ function parseSpots(txt){
       else if(md==="区画") sp.precision = "slot";
       else if((m = md.match(/^(\d)条$/)) && sp.kind==="group" && +m[1] >= 1) sp.rows = +m[1];
       else if((m = md.match(new RegExp(`^間${N}$`))) && sp.kind==="plant" && +m[1] > 0) sp.space = +m[1];
+      else if((m = md.match(/^減(\d+)$/)) && sp.kind==="group") sp.lost = +m[1];
+      else if((m = md.match(/^終株(\d+)-(\d+)@(\d{4}-\d{2}-\d{2})$/)) && sp.kind==="group") (sp.ended = sp.ended || []).push({ row:+m[1], index:+m[2], endDate:m[3] });
       else return { error:tok };
     }
     if(!sp.precision) sp.precision = "exact";
@@ -1499,7 +1504,7 @@ function renderSettings(){
    ============================================================= */
 let sheetCtx = null, ps = null, pe = null, pp = null, sq = null;
 function showSheet(h){ $("#sheet").innerHTML = h; $("#backdrop").hidden = false; $("#sheet").scrollTop = 0; }
-function closeSheet(){ $("#backdrop").hidden = true; sheetCtx = null; ps = null; pe = null; pp = null; sq = null; }
+function closeSheet(){ $("#backdrop").hidden = true; sheetCtx = null; ps = null; pe = null; pp = null; sq = null; es = null; }
 const warnHtml = ws => ws.map(w=>`<div class="warn ${w.level==="red"||w.level==="error"?"":w.level}"><span class="wt">${esc(w.title)}</span>${w.text}</div>`).join("");
 
 /* ---------- 実施日の選択：普段は「今日」のまま1タップ、まとめて記録するときだけ変える ---------- */
@@ -1723,7 +1728,7 @@ function bedBarHtml(bedId, opt){
   items.filter(x=>x.sp.kind!=="plant").forEach(x=>{
     const a = pc(x.sp.from), w = Math.max(0.5, pc(x.sp.to) - a), exact = x.sp.precision==="exact";
     const cls = x.sp.precision==="slot" ? " slot" : x.sp.precision==="unknown" ? " unk" : x.sp.kind==="group" ? " grp" : "";
-    const label = x.sp.precision==="unknown" ? "位置不明："+x.c.name : x.sp.kind==="group" ? `${iconOf(x.c)}×${x.sp.n||1}` : x.c.name;
+    const label = x.sp.precision==="unknown" ? "位置不明："+x.c.name : x.sp.kind==="group" ? `${iconOf(x.c)}×${aliveOf(x.sp)<(x.sp.n||1)?`${aliveOf(x.sp)}/`:""}${x.sp.n||1}` : x.c.name;
     const act = opt.mini ? "" : exact ? `data-act="spot" data-p="${x.p.id}" data-i="${x.i}" role="button" aria-label="${esc(x.c.name)} ${esc(spotLabel(x.sp))}"` : `data-act="planting" data-p="${x.p.id}"`;
     h += `<span class="bb-band${cls}${x.planned?" plan":""}" ${act} style="left:${a}%;width:${w}%" title="${esc(x.c.name)}"><span>${esc(label)}</span></span>`;
   });
@@ -1988,14 +1993,17 @@ function savePlace(){
 function openSpot(pid, i){
   const p = state.plantings.find(x=>x.id===pid); if(!p) return;
   const c = cropById(p.cropId), sp = spotsOf(p)[i]; if(!sp) return;
-  const what = sp.kind==="plant" ? "" : sp.kind==="group" ? `×${sp.n}${(sp.rows||1)>1?`・${sp.rows}条`:""}` : "（帯）";
+  const what = sp.kind==="plant" ? "" : sp.kind==="group" ? `×${sp.n}${(sp.rows||1)>1?`・${sp.rows}条`:""}${aliveOf(sp)<(sp.n||1)?`（生育中${aliveOf(sp)}）`:""}` : "（帯）";
   showSheet(`<h3>${esc(iconOf(c))} ${esc(c.name)}${what}（${esc(spotLabel(sp))}）</h3>
     <div class="sheet-sub">${esc(bedOf(p).name)}・${jp(parseD(startDateOf(p)))}${p.variety?`・${esc(p.variety)}`:""}・この作付けは${p.count}株</div>
     <div class="sidebtns">
       <button class="btn" data-act="spot-side" data-p="${p.id}" data-i="${i}" data-side="left">◀ 左に植える</button>
       <button class="btn" data-act="spot-side" data-p="${p.id}" data-i="${i}" data-side="right">右に植える ▶</button>
     </div>
-    ${sp.precision==="exact" ? `<div class="sidebtns"><button class="btn" data-act="spot-edit" data-p="${p.id}" data-i="${i}">位置を直す</button><button class="btn ghost" data-act="spot-del" data-p="${p.id}" data-i="${i}">この位置を消す</button></div>` : ""}
+    ${sp.precision==="exact" && !sp.endDate ? (sp.kind==="group"
+      ? `<div class="label-s">枯れた・抜いた・収穫が終わった</div><div class="sidebtns"><button class="btn" data-act="end-open" data-p="${p.id}" data-i="${i}" data-m="lost">1株減った（どれか不明）</button><button class="btn" data-act="end-open" data-p="${p.id}" data-i="${i}" data-m="pick">株を選んで終える</button></div>`
+      : `<div class="label-s">枯れた・抜いた・収穫が終わった</div><div class="sidebtns one"><button class="btn" data-act="end-open" data-p="${p.id}" data-i="${i}" data-m="spot">${sp.kind==="band"?"この帯を終える":"この株を終える"}</button></div>`) : ""}
+    ${sp.precision==="exact" ? `<div class="label-s">置き間違いの修正</div><div class="sidebtns"><button class="btn" data-act="spot-edit" data-p="${p.id}" data-i="${i}">位置を直す</button><button class="btn ghost" data-act="spot-del" data-p="${p.id}" data-i="${i}">この位置を消す</button></div>` : ""}
     <div class="sheet-foot"><button class="btn" data-act="planting" data-p="${p.id}">作付けを開く</button><button class="btn" data-act="close">閉じる</button></div>`);
 }
 
@@ -2003,7 +2011,7 @@ function openSpot(pid, i){
    株の作物は1株ずつ、帯の作物は1mの帯を、前のものの右に「隣に置くときのきまり」で並べる。
    同じ作物は同じ作付けにまとめる（同じ畝・同じ日・品種なしの作付けがすでにあれば、そこへ追加。外すこともできる） */
 function openSeq(bedId){
-  sq = { bed:bedId, date:fmtD(today()), startDone:true, items:[], join:true };
+  sq = { bed:bedId, date:fmtD(today()), startDone:true, items:[], join:true, variety:{} };
   renderSeqSheet(true);
 }
 function seqPrev(){
@@ -2031,8 +2039,9 @@ function seqPlan(lay){
   lay.forEach(x=>{ (by[x.cropId] = by[x.cropId] || { cropId:x.cropId, crop:x.crop, spots:[] }).spots.push(x.sp); });
   return Object.values(by).map(g=>{
     const n = g.spots.filter(s=>s.kind==="plant").length;
-    const batch = sq.join ? batchesFor(sq.bed, g.cropId, sq.date, "")[0] || null : null;
-    return Object.assign(g, { n, batch });
+    const variety = (sq.variety[g.cropId]||"").trim();
+    const batch = sq.join ? batchesFor(sq.bed, g.cropId, sq.date, variety)[0] || null : null;
+    return Object.assign(g, { n, batch, variety });
   });
 }
 function renderSeqSheet(top){
@@ -2064,8 +2073,9 @@ function renderSeqSheet(top){
     <div class="btns" style="margin-top:6px"><button class="btn small" data-act="sq-undo"${lay.length?"":" disabled"}>1つ戻す</button><button class="btn small" data-act="sq-clear"${lay.length?"":" disabled"}>全部消す</button></div>
     <div class="label-s">作物（タップした順に右へ並びます）</div>
     <div class="seqpal">${my.map(c=>`<button class="seqbtn" data-act="sq-add" data-c="${c.id}"><span class="si">${esc(iconOf(c))}</span><span class="sn">${esc(c.name)}</span></button>`).join("")}</div>
-    ${plan.length ? `<div class="label-s">登録の内容</div><div class="seqplan">${plan.map(g=>`<div>${esc(iconOf(g.crop))} <b>${esc(g.crop.name)}</b> ${g.n?`${g.n}株`:""}${g.spots.some(s=>s.kind==="band")?`帯${g.spots.filter(s=>s.kind==="band").length}本`:""} → ${g.batch?`既存の作付け（${jp(parseD(startDateOf(g.batch)))}・${g.batch.count}株）に追加`:"新しい作付け"}</div>`).join("")}</div>
-      <label class="checkline"><input type="checkbox" id="sq-join"${sq.join?" checked":""}> 同じ作物・同じ日の作付けがこの畝にあれば、そこへ追加する</label>` : ""}
+    ${plan.length ? `<div class="label-s">登録の内容</div><div class="seqplan">${plan.map(g=>`<div class="planrow"><div>${esc(iconOf(g.crop))} <b>${esc(g.crop.name)}</b> ${g.n?`${g.n}株`:""}${g.spots.some(s=>s.kind==="band")?`帯${g.spots.filter(s=>s.kind==="band").length}本`:""} → ${g.batch?`既存の作付け（${jp(parseD(startDateOf(g.batch)))}${g.batch.variety?`・${esc(g.batch.variety)}`:""}・${g.batch.count}株）に追加`:"新しい作付け"}</div>
+        <input type="text" class="sqv" data-c="${g.cropId}" value="${esc(sq.variety[g.cropId]||"")}" placeholder="品種（任意）" autocomplete="off" aria-label="${esc(g.crop.name)}の品種"></div>`).join("")}</div>
+      <label class="checkline"><input type="checkbox" id="sq-join"${sq.join?" checked":""}> 同じ作物・同じ日・同じ品種の作付けがこの畝にあれば、そこへ追加する</label>` : ""}
     ${notes.length ? `<div class="warn note"><span class="wt">位置の確認</span>${uniq(notes).join("<br>")}</div>` : ""}
     ${errs.length ? `<div class="warn"><span class="wt">このままでは登録できません</span>${uniq(errs).join("<br>")}<br>「1つ戻す」で減らすか、畝の寸法を確認してください。</div>` : ""}
     ${warns.length ? `<div class="warn amber"><span class="wt">注意</span>${uniq(warns).join("<br>")}</div>` : ""}
@@ -2078,6 +2088,7 @@ function renderSeqSheet(top){
   const di = $("#sq-date"); if(di) di.addEventListener("change", ()=>{ if(di.value){ sq.date = di.value; if(parseD(sq.date) > today()) sq.startDone = false; } renderSeqSheet(); });
   document.querySelectorAll('input[name="sq-start"]').forEach(r=>r.addEventListener("change", ()=>{ sq.startDone = r.value==="1" && r.checked; }));
   const jn = $("#sq-join"); if(jn) jn.addEventListener("change", ()=>{ sq.join = jn.checked; renderSeqSheet(); });
+  document.querySelectorAll(".sqv").forEach(inp=>inp.addEventListener("change", ()=>{ sq.variety[inp.dataset.c] = inp.value; renderSeqSheet(); }));
 }
 function saveSeq(){
   if(!sq || !sq.items.length || scriptTooOld()) return;
@@ -2095,7 +2106,7 @@ function saveSeq(){
       putPlanting(g.batch);
     }else{
       const pid = uid("p");
-      putPlanting({ id:pid, bedId:sq.bed, slots:[], spots:g.spots.slice().sort(sortPos), cropId:g.cropId, date:sq.date, count:g.n, status:"active", memo:"" });
+      putPlanting({ id:pid, bedId:sq.bed, slots:[], spots:g.spots.slice().sort(sortPos), cropId:g.cropId, date:sq.date, count:g.n, status:"active", memo:"", variety:g.variety || undefined });
       const st = startTaskOf(g.crop);
       if(st && done) putLog({id:uid("l"), plantingId:pid, taskId:st.id, date:sq.date, type:"work"});
     }
@@ -2169,6 +2180,121 @@ function removeSpot(pid, i){
   closeSheet(); renderAll(); toast(`${c.name}の位置を1つ消しました`);
 }
 
+/* ---------- 一部終了（枯れた・抜いた・収穫が終わった） ----------
+   株・帯：その位置に終了日をつける（その日から空く）
+   まとまり：植えた株数 n は事実として変えない（中の株の位置の計算に使うため）
+     ・「1株減った（どれか不明）」→ lost（不明な減少の数）を1つ増やす
+     ・「この株が終わった」       → ended に {row, index, endDate} を記録（1条目の3株目 など）
+     ・不明な減少を、あとで特定した株の記録に振り替えるときは lost を1つ減らす（二重に数えない）
+     ・まとまりの場所は、全部の株が終わる（生育中が0になる）までは使用中のまま。個別の終了は履歴の精度を上げるためで、
+       その場所をすぐ別の株に使う機能ではない（必要なら、まとまりを株に分けて置き直す）
+   全部の位置が終わったら、作付けも終了にする（終了日は最後の位置の終了日） */
+function aliveOf(sp){
+  if(sp.endDate) return 0;
+  if(sp.kind==="plant") return 1;
+  if(sp.kind==="group") return Math.max(0, (sp.n||1) - (sp.lost||0) - (sp.ended||[]).length);
+  return 0;
+}
+const plantedOf = sp => sp.kind==="plant" ? 1 : sp.kind==="group" ? (sp.n||1) : 0;
+function autoDone(p){
+  if(!Array.isArray(p.spots) || !p.spots.length || !p.spots.every(sp=>sp.endDate)) return false;
+  p.status = "done"; p.endDate = p.spots.map(sp=>sp.endDate).sort().pop();
+  return true;
+}
+function saveEnded(p, msg){
+  const done = autoDone(p);
+  putPlanting(p); closeSheet(); renderAll();
+  toast(done ? `${msg}。全部の位置が終わったので、作付けを終了にしました` : msg);
+}
+function endSpot(p, i, date){ p.spots[i] = Object.assign({}, p.spots[i], { endDate:date }); saveEnded(p, `${cropById(p.cropId).name}（${spotLabel(p.spots[i])}）を終了にしました`); }
+function groupLose(p, i, date){
+  const sp = Object.assign({}, p.spots[i]); sp.lost = (sp.lost||0) + 1;
+  if(aliveOf(sp)===0) sp.endDate = date;
+  p.spots[i] = sp; saveEnded(p, `${cropById(p.cropId).name}のまとまりで1株減りました（どれかは不明）`);
+}
+function groupEndPlant(p, i, row, index, date, convert){
+  const sp = Object.assign({}, p.spots[i], { ended:(p.spots[i].ended||[]).slice() });
+  if(sp.ended.some(e=>e.row===row && e.index===index)) return;
+  const needConvert = (sp.n||1) - (sp.lost||0) - sp.ended.length <= 0;          // 生育中が0なのに特定の株を終える＝不明な減少がその株だった
+  if((convert || needConvert) && (sp.lost||0) > 0) sp.lost -= 1;
+  sp.ended.push({ row, index, endDate:date });
+  sp.ended.sort((a,b)=>a.row-b.row || a.index-b.index);
+  if(aliveOf(sp)===0) sp.endDate = [date].concat(sp.ended.map(e=>e.endDate)).sort().pop();
+  p.spots[i] = sp;
+  saveEnded(p, `${cropById(p.cropId).name}（${row}条目の${index}株目）を終了にしました`);
+}
+/* まとまりの中の株（1条目の1株目…）と、その状態 */
+function groupPlants(sp){
+  const byRow = {};
+  return groupCenters(sp).map(g=>{ byRow[g.row] = (byRow[g.row]||0) + 1; const index = byRow[g.row];
+    const e = (sp.ended||[]).find(x=>x.row===g.row && x.index===index);
+    return { row:g.row, index, center:Math.round(g.center), ended: e ? e.endDate : null }; });
+}
+let es = null;
+function openEnd(pid, i, mode){
+  const p = state.plantings.find(x=>x.id===pid); if(!p || !p.spots || !p.spots[i]) return;
+  es = { pid, i, mode, pick:null, convert:true };
+  renderEndSheet();
+}
+function renderEndSheet(){
+  const p = state.plantings.find(x=>x.id===es.pid), sp = p.spots[es.i], c = cropById(p.cropId);
+  const title = es.mode==="lost" ? "1株減った（どれかは不明）" : es.mode==="pick" ? "株を選んで終える" : sp.kind==="band" ? "この帯を終える" : "この株を終える";
+  let body = "";
+  if(sp.kind==="group"){
+    const pl = groupPlants(sp), alive = aliveOf(sp);
+    body += `<div class="sheet-sub">植えた${sp.n}株・生育中${alive}株${sp.lost?`（どれか不明の減少${sp.lost}株）`:""}${(sp.ended||[]).length?`・終了${sp.ended.length}株`:""}</div>`;
+    if(es.mode==="pick"){
+      const rows = [...new Set(pl.map(x=>x.row))];
+      body += `<div class="label-s">終わった株を選ぶ（左から）</div>` + rows.map(r=>`<div class="gprow"><span class="lbl">${r}条目</span>${pl.filter(x=>x.row===r).map(x=>
+        `<button class="chip${es.pick && es.pick.row===x.row && es.pick.index===x.index?" sel":""}" data-act="es-pick" data-r="${x.row}" data-x="${x.index}"${x.ended?" disabled":""}>${x.index}株目<small>${x.center}cm${x.ended?`・終了${jp(parseD(x.ended)).replace(/\(.\)/,"")}`:""}</small></button>`).join("")}</div>`).join("");
+      if(sp.lost) body += `<label class="checkline"><input type="checkbox" id="es-conv"${es.convert?" checked":""}> 不明な減少（${sp.lost}株）のうち1株を、この株の記録に振り替える（同じ株を二重に数えない）</label>`;
+    }
+    body += `<div class="warn note"><span class="wt">まとまりの場所</span>全部の株が終わるまで、まとまりの場所（${sp.from}〜${sp.to}cm）は使用中のままです。個別の終了は記録の精度を上げるためのものです。</div>`;
+  }else if(sp.kind==="plant") body += `<div class="sheet-sub">${esc(spotLabel(sp))}。終わった日から、この場所は空きになります。作付けのやることや記録はそのまま残ります。</div>`;
+  else body += `<div class="sheet-sub">${esc(spotLabel(sp))}。終わった日から、この帯の場所は空きになります。</div>`;
+  showSheet(`<h3>${esc(iconOf(c))} ${esc(c.name)}：${title}</h3>${body}${doneDateHtml("es-date","終わった日")}
+    <div class="sheet-foot"><button class="btn" data-act="close">やめる</button><button class="btn primary" data-act="es-save"${es.mode==="pick" && !es.pick ? " disabled" : ""}>記録する</button></div>`);
+  wireDoneDate($("#sheet"));
+  const cv = $("#es-conv"); if(cv) cv.addEventListener("change", ()=>{ es.convert = cv.checked; });
+}
+function saveEnd(){
+  const p = state.plantings.find(x=>x.id===es.pid); if(!p) return;
+  const date = pickedDate("es-date"), sp = p.spots[es.i];
+  if(es.mode==="lost") return groupLose(p, es.i, date);
+  if(es.mode==="pick"){ if(!es.pick) return; return groupEndPlant(p, es.i, es.pick.row, es.pick.index, date, es.convert); }
+  endSpot(p, es.i, date);
+}
+/* 終了の取り消し（記録の間違い） */
+function unendSpot(pid, i, what, k){
+  const p = state.plantings.find(x=>x.id===pid); if(!p || !p.spots || !p.spots[i]) return;
+  const sp = Object.assign({}, p.spots[i]);
+  if(what==="spot") delete sp.endDate;
+  if(what==="lost"){ sp.lost = Math.max(0, (sp.lost||0) - 1); if(!sp.lost) delete sp.lost; delete sp.endDate; }
+  if(what==="ended"){ sp.ended = (sp.ended||[]).filter((_,j)=>j!==k); if(!sp.ended.length) delete sp.ended; delete sp.endDate; }
+  p.spots[i] = sp;
+  if(p.status==="done" && !p.spots.every(x=>x.endDate)){ p.status = "active"; delete p.endDate; }
+  putPlanting(p); renderAll(); openPlanting(p.id); toast("終了の記録を取り消しました");
+}
+/* 作付けの詳細：位置ごとの状態 */
+function spotsListHtml(p){
+  if(!hasExactSpots(p)) return "";
+  const rows = p.spots.map((sp,i)=>{
+    const base = `${sp.kind==="group"?`まとまり ${sp.n}株${(sp.rows||1)>1?`・${sp.rows}条`:""}`:sp.kind==="band"?"帯":"株"}（${esc(spotLabel(sp))}）`;
+    let st = sp.endDate ? `終了 ${jp(parseD(sp.endDate))} <button class="linkbtn" data-act="spot-unend" data-p="${p.id}" data-i="${i}" data-w="spot">取り消す</button>` : "生育中";
+    let sub = "";
+    if(sp.kind==="group" && !sp.endDate) st = `生育中 ${aliveOf(sp)}株`;
+    if(sp.kind==="group"){
+      const pl = groupPlants(sp);
+      sub += (sp.ended||[]).map((e,k)=>{ const x = pl.find(y=>y.row===e.row && y.index===e.index);
+        return `<div class="spsub">${e.row}条目の${e.index}株目（${x?x.center:"?"}cm）終了 ${jp(parseD(e.endDate))} <button class="linkbtn" data-act="spot-unend" data-p="${p.id}" data-i="${i}" data-w="ended" data-k="${k}">取り消す</button></div>`; }).join("");
+      if(sp.lost) sub += `<div class="spsub">どれか不明の減少 ${sp.lost}株 <button class="linkbtn" data-act="spot-unend" data-p="${p.id}" data-i="${i}" data-w="lost">1株取り消す</button></div>`;
+    }
+    return `<div class="sprow${sp.endDate?" ended":""}"><div><span>${base}</span><span class="spst">${st}</span></div>${sub}</div>`;
+  }).join("");
+  const planted = p.spots.reduce((s,x)=>s+plantedOf(x),0), alive = p.spots.reduce((s,x)=>s+aliveOf(x),0);
+  return `<div class="label-s">位置（植えた${planted}株・生育中${alive}株）</div><div class="splist">${rows}</div>`;
+}
+
 /* ---------- 作付けの詳細 ---------- */
 function openPlanting(pid){
   const p = state.plantings.find(x=>x.id===pid); if(!p) return;
@@ -2181,6 +2307,7 @@ function openPlanting(pid){
   let h = `<h3>${esc(c.name)}</h3>
     <div class="sheet-sub">${esc(bed.name)} ${hasExactSpots(p) ? `${posLabel(p)}` : `区画${slotNums(p)}（${esc(shareLabel(slotsTouched(p).length))}）`}・${p.count}株${p.variety?`・${esc(p.variety)}`:""}</div>
     ${posWarnHtml(p)}
+    ${spotsListHtml(p)}
     <div class="sheet-sub">${(()=>{ const a = actualStart(p);
       if(a) return `${esc(c.start.action)} ${jp(a)}${a.getTime()!==d.getTime()?`（予定は${jp(d)}）`:""}${isDone?"":`・${diffD(t0,a)}日目`}`;
       if(isDone) return `${esc(c.start.action)} ${jp(d)}`;
@@ -2319,6 +2446,10 @@ async function handle(act, el, ev){
     case "sq-save": saveSeq(); break;
     case "spot-edit": openSpotEdit(d.p, Number(d.i)); break;
     case "spot-del": removeSpot(d.p, Number(d.i)); break;
+    case "end-open": openEnd(d.p, Number(d.i), d.m); break;
+    case "es-pick": if(es){ es.pick = { row:Number(d.r), index:Number(d.x) }; const dv = pickedDate("es-date"); renderEndSheet(); const di = $("#es-date"); if(di){ di.value = dv; di.closest(".donedate").querySelectorAll("[data-act=dd]").forEach(b=>b.classList.toggle("sel", b.dataset.v===dv)); } } break;
+    case "es-save": saveEnd(); break;
+    case "spot-unend": unendSpot(d.p, Number(d.i), d.w, Number(d.k)); break;
     case "done": completeTask(); break;
     case "undo": if(toast.undo){ toast.undo(); toast.undo = null; $("#toast").className = ""; } break;
     case "go-settings": selectTab("tab-set"); break;
@@ -2356,6 +2487,8 @@ async function handle(act, el, ev){
       const probe = Object.assign({}, p, {status:"active"}); delete probe.endDate;
       const clash = slotsTouched(p).filter(s=>plantingsIn(s, x=>x.id!==p.id).some(x=>overlaps(interval(probe), intervalIn(x, s))));
       if(clash.length){ alert(`区画${clash.map(slotIdx).join("・")}は、その時期に別の作物が使っています。先に「修正」で区画を変えてください。`); break; }
+      // 全部の位置が終わって自動で終了になった作付けを再開：最後に終わった位置（作付けの終了日と同じ日）だけ再開する
+      if(Array.isArray(p.spots) && p.endDate) p.spots = p.spots.map(sp=>sp.endDate && sp.endDate >= p.endDate ? (({endDate, ...rest})=>rest)(sp) : sp);
       p.status = "active"; delete p.endDate; putPlanting(p); renderAll(); openPlanting(p.id); break;
     }
     case "toggle-crop": {

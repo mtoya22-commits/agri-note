@@ -1,0 +1,3512 @@
+{
+ "meta": {
+  "version": 4,
+  "baseRegion": "中間地",
+  "note": "時期は種苗会社・通販サイトの「中間地（関東〜西日本の平野部）」の標準値。trigger.days が負＝植付/播種日から逆算する準備作業。routine=見回り系。slotsNeeded=必要な区画数（1区画＝1/4畝）。rotation=同じ区画で同じ科を作るまでの年数の幅（minYears未満＝連作リスク高、maxYears未満＝推奨より短い）。start.notBefore／trigger.notAfter＝霜の平年日を基準にした制約（anchor: lastFrost=その年の終霜、firstFrost=作付け後最初の初霜）。frostKilled=初霜で枯れる（繰り返し作業と収穫期は初霜で打ち切り）。frost=霜リスクが出たときの注意。 start.lateUntil＝適期の後も『遅め』として始められる期限（lateSourceに出典）。ないときは適期を過ぎたら『今季非推奨』。 task.timing＝目安日の前後に許容する日数（earlyDays・lateDays）。ないときは作業の種類ごとのアプリの初期値。期限（notAfter）は超えない。task.urgency＝'high'で許容幅を短く。notAfter の anchor 'md' は暦の月日（例 03-01 の前日＝2月末）。",
+  "safetyMarginNote": "終霜+14日・初霜-7日はアプリの暫定の安全幅（出典なし）。タキイ種苗は夏野菜の定植条件を『晩霜の心配がなく最低気温10℃以上、最低地温15℃以上』としている。",
+  "spacingNote": "spacingCm は start.spacing（出典つきの文章）から取った数値。min＝必要な株間、preferred＝推奨（幅のある書き方のときだけ）。未設定の作物は株間を「不明」として扱い、株間の注意やおすすめの材料にしない。layout：plant＝株で置く／band＝帯（すじまき等）",
+  "rowsNote": "rows：まとまりで植えるときの既定の条数（出典の文章にあるものだけ）。未設定は1条"
+ },
+ "families": {
+  "ナス科": {
+   "rotation": {
+    "minYears": 4,
+    "maxYears": 4
+   }
+  },
+  "アブラナ科": {
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2
+   }
+  },
+  "ヒガンバナ科": {
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1
+   }
+  },
+  "ウリ科": {
+   "rotation": {
+    "minYears": 5,
+    "maxYears": 5
+   }
+  },
+  "マメ科": {
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2
+   }
+  },
+  "キク科": {
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2
+   }
+  },
+  "セリ科": {
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1
+   }
+  },
+  "ヒユ科": {
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1
+   }
+  },
+  "アオイ科": {
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2
+   }
+  },
+  "バラ科": {
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2
+   }
+  },
+  "イネ科": {
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1
+   }
+  },
+  "シソ科": {
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1
+   }
+  },
+  "ヒルガオ科": {
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0
+   }
+  },
+  "キジカクシ科": {
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0
+   }
+  }
+ },
+ "crops": [
+  {
+   "id": "tomato",
+   "name": "トマト",
+   "type": "A",
+   "typeLabel": "長期収穫型",
+   "family": "ナス科",
+   "unit": "個",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "定植",
+    "window": [
+     "5上",
+     "5中"
+    ],
+    "spacing": "株間45cm・1条植え",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7上",
+    "9下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰",
+      "くわ"
+     ],
+     "steps": [
+      "前作の残渣・根を取り除く",
+      "苦土石灰を1㎡あたり100〜150gまく",
+      "深さ25〜30cmまで耕して混ぜ込む",
+      "そのまま2週間置く"
+     ],
+     "caution": "石灰と元肥を同時に入れると窒素が抜ける。必ず2週間空ける。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て・マルチ",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "黒マルチ",
+      "くわ",
+      "レーキ"
+     ],
+     "steps": [
+      "完熟堆肥を1㎡あたり2〜3kg入れる",
+      "化成肥料を1㎡あたり100g入れる",
+      "よく耕して混ぜ、幅60〜70cm・高さ10〜15cmの畝を立てる",
+      "表面をレーキで平らにならす",
+      "黒マルチを張り、裾を土でしっかり押さえる"
+     ],
+     "caution": "未熟な堆肥は根を傷める。完熟品を使う。"
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "仮支柱(50cm)",
+      "麻ひも",
+      "じょうろ"
+     ],
+     "steps": [
+      "苗は一番花が咲いた、または蕾が見えるものを選ぶ",
+      "マルチに株間45cmで植え穴をあける",
+      "植え穴にたっぷり水を入れ、引くのを待つ",
+      "根鉢を崩さずに苗を置く",
+      "第1花房を通路側に向けて植える",
+      "接ぎ木苗は接合部が土に埋まらないよう浅めに",
+      "株元を軽く押さえ、もう一度灌水",
+      "仮支柱を斜めに立て、麻ひもを八の字にして結ぶ"
+     ],
+     "caution": "深植えすると活着が遅れる。第1花房の向きは後の収穫のしやすさを決める。"
+    },
+    {
+     "id": "support",
+     "name": "本支柱立て・誘引",
+     "trigger": {
+      "type": "offset",
+      "days": 10
+     },
+     "materials": [
+      "支柱(180cm)",
+      "麻ひも"
+     ],
+     "steps": [
+      "仮支柱を抜き、本支柱を株から10cm離して立てる",
+      "地中に30cm以上しっかり差し込む",
+      "支柱と茎を麻ひもで結ぶ（支柱側で固結び、茎側はゆるく八の字）",
+      "以降は20〜30cm伸びるごとに結び足す"
+     ],
+     "caution": "茎を直接締めつけると生長で食い込む。必ず八の字でゆとりを持たせる。"
+    },
+    {
+     "id": "sideshoot",
+     "name": "わき芽かき",
+     "note": "1本仕立て。葉の付け根から出る芽をすべて取る。",
+     "trigger": {
+      "type": "offset",
+      "days": 14,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 130
+      }
+     },
+     "steps": [
+      "主枝と葉の間から出ている芽を探す",
+      "晴れた日の午前中に、小さいうちに手で折り取る",
+      "ハサミは使わない（切り口から病気が伝染する）",
+      "太くなりすぎた芽は無理に取らず、葉を1枚残して切る",
+      "作業後は手を洗ってから次の株へ"
+     ],
+     "caution": "取り遅れると株が消耗する。週1回は必ず見回る。",
+     "routine": true
+    },
+    {
+     "id": "thin_fruit",
+     "name": "摘果",
+     "note": "大玉のみ。中玉・ミニは不要。",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 21,
+       "untilDays": 100
+      }
+     },
+     "steps": [
+      "1花房あたり3〜4果に減らす",
+      "形の悪い果実・先端の小さい果実から落とす",
+      "果柄をひねるように取る"
+     ],
+     "routine": true
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 21,
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 130
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "第1果房の果実がピンポン玉大になってから開始",
+      "マルチの裾をめくる、または株元から30cm離した畝の肩に施す",
+      "1株あたりひと握り（約30g）",
+      "軽く土と混ぜ、マルチを戻す",
+      "以降2週間ごとに繰り返す"
+     ],
+     "caution": "早すぎる追肥は茎葉ばかり茂り実がつかない（つるボケ）。"
+    },
+    {
+     "id": "topping",
+     "name": "摘芯",
+     "trigger": {
+      "type": "offset",
+      "days": 75
+     },
+     "steps": [
+      "支柱の高さ（第5花房あたり）まで伸びたら止める",
+      "最終花房の上に葉を2枚残して先端を切る",
+      "以降の養分を残った果実に回す"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 55,
+      "repeat": {
+       "everyDays": 3,
+       "untilDays": 150
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "ヘタのきわまで赤く色づいたものを選ぶ",
+      "気温の低い朝のうちに採る",
+      "果柄をハサミで切る",
+      "採った数を記録する"
+     ],
+     "caution": "採り遅れると裂果する。雨の前は色づきかけでも採って追熟させる。"
+    }
+   ],
+   "frost": {
+    "autumn": "霜に当たると株が枯れます。残っている実をすべて収穫して片付けてください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 4,
+    "maxYears": 5,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」（JA秋田ふるさとは6〜7年）",
+    "note": "接ぎ木苗なら短くできます"
+   },
+   "frostKilled": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 45
+   },
+   "icon": "🍅"
+  },
+  {
+   "id": "onion_late",
+   "name": "晩生玉ねぎ",
+   "type": "B",
+   "typeLabel": "一発収穫型（越冬）",
+   "family": "ヒガンバナ科",
+   "unit": "個",
+   "harvestMode": "single",
+   "winterSunNote": "冬〜春の日照が球の肥大に直結。半日陰の畝は避ける。",
+   "start": {
+    "action": "定植",
+    "window": [
+     "11中",
+     "11下"
+    ],
+    "spacing": "株間12cm・条間20cm・4〜5条",
+    "lateUntil": "12上",
+    "lateSource": "JA西春日井 家庭菜園：中生〜中晩生の植えつけ 11月中旬〜12月上旬"
+   },
+   "harvestWindow": [
+    "6上",
+    "6中"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100〜150gまく",
+      "深さ20〜25cmまで耕す",
+      "2週間置く"
+     ]
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て・マルチ",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "玉ねぎ用穴あきマルチ"
+     ],
+     "steps": [
+      "完熟堆肥を1㎡あたり2kg、化成肥料を100g入れる",
+      "よく耕し、幅90cm・高さ10cmの平畝を立てる",
+      "穴あきマルチを張ると除草がほぼ不要になる",
+      "裾を土で完全に押さえる（冬風でめくれる）"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "じょうろ"
+     ],
+     "steps": [
+      "苗は太さ7〜8mm（鉛筆程度）・長さ20cm前後を選ぶ",
+      "太すぎる苗はとう立ちしやすいので避ける",
+      "指で深さ3cmほどの穴をあける",
+      "白い部分が2〜3cm埋まる程度に浅く植える",
+      "株元を軽く押さえる（根が浮かない程度）",
+      "植え付け後にたっぷり灌水"
+     ],
+     "caution": "深植えは球が太らない最大の原因。葉の分岐点を土に埋めない。"
+    },
+    {
+     "id": "winter_check",
+     "name": "霜柱チェック・防寒",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "repeat": {
+       "everyDays": 21,
+       "untilDays": 100
+      }
+     },
+     "steps": [
+      "霜柱で根が浮いた株を探す",
+      "浮いた株は指で押し戻す",
+      "マルチ無しの場合はもみ殻・敷きわらで株元を覆う"
+     ],
+     "caution": "浮いたまま放置すると枯れる。厳寒期は月1回見回る。",
+     "routine": true
+    },
+    {
+     "id": "fert1",
+     "name": "追肥1回目",
+     "trigger": {
+      "type": "calendar",
+      "when": "12下"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり30〜40gを条間にばらまく",
+      "マルチの場合は植え穴に少量ずつ落とす",
+      "軽く中耕して土と混ぜる"
+     ]
+    },
+    {
+     "id": "fert2",
+     "name": "追肥2回目（止め肥）",
+     "trigger": {
+      "type": "calendar",
+      "when": "2下",
+      "notAfter": {
+       "anchor": "md",
+       "md": "03-01",
+       "days": -1
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり30〜40g",
+      "同時に除草を済ませる",
+      "これが最後の追肥だと記録しておく"
+     ],
+     "caution": "3月以降の追肥は厳禁。貯蔵性が落ち、首が締まらず腐りやすくなる。",
+     "deadlineNote": "3月以降の追肥は厳禁（この作業の注意書きより）"
+    },
+    {
+     "id": "bolting",
+     "name": "とう立ち・分球チェック",
+     "trigger": {
+      "type": "calendar",
+      "when": "4上",
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 60
+      }
+     },
+     "steps": [
+      "葉の中心から硬い花茎（とう）が出ていないか見る",
+      "出ている株は早めに抜いて食べる",
+      "とう立ち株は貯蔵できないので分けて記録"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "calendar",
+      "when": "6上"
+     },
+     "materials": [
+      "収穫かご",
+      "ハサミ"
+     ],
+     "steps": [
+      "全体の8割の葉が倒れたのを確認する",
+      "倒伏から1週間ほど待つ",
+      "晴天が2〜3日続く日の午前中に抜く",
+      "抜いた株を畑に並べ、葉を上にして半日〜1日干す",
+      "収穫個数を記録する"
+     ],
+     "caution": "雨の日・雨上がりに抜くと貯蔵中に腐る。"
+    },
+    {
+     "id": "cure",
+     "name": "乾燥・吊るし",
+     "trigger": {
+      "type": "calendar",
+      "when": "6中"
+     },
+     "materials": [
+      "麻ひも"
+     ],
+     "steps": [
+      "葉を20cmほど残して切る",
+      "根を切り落とす",
+      "4〜5個ずつ葉の部分で縛る",
+      "雨の当たらない風通しの良い日陰に吊るす"
+     ]
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」：連作しても害が少ない"
+   },
+   "winterSunRequired": true,
+   "layout": "band",
+   "spacingCm": {
+    "min": 12
+   },
+   "icon": "🧅"
+  },
+  {
+   "id": "daikon",
+   "name": "大根",
+   "type": "C",
+   "typeLabel": "直播き間引き型",
+   "family": "アブラナ科",
+   "unit": "本",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "9上",
+     "9中"
+    ],
+    "spacing": "株間30cm・条間40cm・1穴4〜5粒の点まき",
+    "lateUntil": "9下",
+    "lateSource": "サカタのタネ「冬自慢」：一般地・暖地 9月上旬〜下旬まき（品種による。適期はJA西春日井の9月上旬〜中旬）"
+   },
+   "harvestWindow": [
+    "11上",
+    "12下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（深耕・石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰",
+      "スコップ",
+      "くわ"
+     ],
+     "steps": [
+      "深さ30〜40cmまで深く耕す",
+      "石・硬い土塊・未熟な有機物を丁寧に取り除く",
+      "苦土石灰を1㎡あたり100gまく",
+      "2週間置く"
+     ],
+     "caution": "障害物があると又根・曲がりになる。ここが大根の成否の8割。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -7
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥を1㎡あたり2kg、化成肥料を100g入れる",
+      "よく耕して均一に混ぜる",
+      "幅60〜70cm・高さ10〜15cmの畝を立てる",
+      "表面を平らにならす"
+     ],
+     "caution": "未熟堆肥・肥料のかたまりが根に当たると又根になる。"
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防虫ネット",
+      "支柱(トンネル用)",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間30cmで、深さ1cmのくぼみを作る",
+      "1か所に4〜5粒を離してまく",
+      "覆土は1cm、手のひらで軽く鎮圧する",
+      "たっぷり灌水する",
+      "すぐに防虫ネットをトンネル掛けする",
+      "裾に隙間ができないよう土で密閉する"
+     ],
+     "caution": "発芽後にネットをかけても手遅れ。播種と同日に必ず掛ける。"
+    },
+    {
+     "id": "thin1",
+     "name": "間引き1回目 → 3本に",
+     "trigger": {
+      "type": "offset",
+      "days": 10,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "子葉がハート型に整っている株を残す",
+      "子葉の形がいびつな株・虫食い株を抜く",
+      "1か所3本になるまで減らす",
+      "残す株の根が動かないよう、押さえながら抜く",
+      "間引き後に株元へ軽く土寄せ"
+     ],
+     "caution": "子葉が変形した株は根も変形する。ここで選別しておく。"
+    },
+    {
+     "id": "thin2",
+     "name": "間引き2回目 → 1本に ＋ 追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 25,
+      "stage": "本葉6〜7枚"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "最も生育が良く、葉が立っている1本を残す",
+      "残りをハサミで地際から切る（抜くと隣の根を傷める）",
+      "化成肥料を1㎡あたり30gを条間に施す",
+      "中耕して肥料を混ぜ、株元に土寄せする",
+      "間引き菜は食べられるので持ち帰る"
+     ]
+    },
+    {
+     "id": "hilling",
+     "name": "中耕・土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 40
+     },
+     "steps": [
+      "条間の土をほぐす",
+      "株元に土を寄せ、根の肩が露出しないようにする",
+      "同時に雑草を取る"
+     ],
+     "caution": "肩が出たまま日に当たると青首・硬化する。"
+    },
+    {
+     "id": "pest",
+     "name": "害虫チェック",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 70
+      }
+     },
+     "steps": [
+      "葉裏を見てアオムシ・コナガ・アブラムシを確認",
+      "見つけたら捕殺する",
+      "ネットの裾に隙間がないか確認",
+      "食害が葉の3割を超えたら薬剤を検討"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 60,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 110
+      }
+     },
+     "steps": [
+      "外葉が垂れ下がってきたら収穫適期",
+      "肩の直径が6〜7cmあるか土を少し掘って確認",
+      "葉の付け根を持ち、垂直に引き抜く",
+      "抜いた本数を記録する",
+      "残す株は霜が来る前に土をかぶせて保存"
+     ],
+     "caution": "採り遅れると「す」が入る。適期から2週間以内に採り切る。"
+    }
+   ],
+   "frost": {
+    "autumn": "強い霜が続くと根の肩が凍みます。土寄せで肩を隠すか、早めに収穫してください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」：連作しても害が少ない"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   }
+  },
+  {
+   "id": "nasu",
+   "name": "ナス",
+   "type": "A",
+   "typeLabel": "長期収穫型",
+   "family": "ナス科",
+   "unit": "本",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "定植",
+    "window": [
+     "5中",
+     "5下"
+    ],
+    "spacing": "株間60cm・1条植え",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7上",
+    "10中"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰",
+      "くわ"
+     ],
+     "steps": [
+      "前作の残渣・根を取り除く",
+      "苦土石灰を1㎡あたり100〜150gまく",
+      "深さ25〜30cmまで耕す",
+      "2週間置く"
+     ],
+     "caution": "石灰と元肥は同時に入れない。必ず2週間空ける。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て・マルチ",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "黒マルチ"
+     ],
+     "steps": [
+      "完熟堆肥を1㎡あたり3kg入れる（ナスは肥料食い）",
+      "化成肥料を1㎡あたり120g入れる",
+      "幅70cm・高さ10〜15cmの畝を立てる",
+      "黒マルチを張り、裾を土で押さえる"
+     ],
+     "caution": "ナスは多肥・多水を好む。堆肥はケチらない。"
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "仮支柱(60cm)",
+      "麻ひも",
+      "じょうろ"
+     ],
+     "steps": [
+      "一番花の蕾が見える苗を選ぶ",
+      "株間60cmで植え穴をあける",
+      "植え穴にたっぷり水を入れ、引くのを待つ",
+      "根鉢を崩さず浅めに植える",
+      "仮支柱を立てて八の字で結ぶ",
+      "株元にたっぷり灌水"
+     ],
+     "caution": "株間を詰めると日当たりが落ちて実つきが悪くなる。60cmは守る。"
+    },
+    {
+     "id": "pruning",
+     "name": "整枝（3本仕立て）",
+     "trigger": {
+      "type": "offset",
+      "days": 20
+     },
+     "materials": [
+      "支柱(180cm)×3",
+      "麻ひも"
+     ],
+     "steps": [
+      "一番花を見つける",
+      "一番花のすぐ下のわき芽2本を残す",
+      "それより下のわき芽はすべて取り除く",
+      "主枝＋わき芽2本の3本仕立てにする",
+      "3本それぞれに支柱を立てて誘引する"
+     ],
+     "caution": "下のわき芽を残すと養分が分散して実が太らない。ここで形を決める。"
+    },
+    {
+     "id": "first_fruit",
+     "name": "一番果の摘果",
+     "trigger": {
+      "type": "offset",
+      "days": 28
+     },
+     "steps": [
+      "一番果は小さいうち（5〜6cm）に切り取る",
+      "株を育てることを優先する"
+     ],
+     "caution": "一番果を大きくすると株が消耗し、その後の収量が落ちる。"
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 150
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1株あたりひと握り（約30g）を畝の肩に施す",
+      "軽く土と混ぜる",
+      "肥料切れのサイン＝花の中心の雌しべが短くなる",
+      "以降2週間ごとに繰り返す"
+     ],
+     "caution": "ナスは肥料切れを起こしやすい。雌しべが短い花を見たら即追肥。"
+    },
+    {
+     "id": "sideshoot",
+     "name": "わき芽かき・古葉取り",
+     "trigger": {
+      "type": "offset",
+      "days": 35,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 150
+      }
+     },
+     "steps": [
+      "3本の主枝以外から出るわき芽を取る",
+      "株元に近い古い葉・黄色い葉を取り除く",
+      "風通しと日当たりを確保する"
+     ],
+     "routine": true
+    },
+    {
+     "id": "renewal",
+     "name": "更新剪定（秋ナス用）",
+     "note": "7月下旬。株を若返らせて秋まで穫る。",
+     "trigger": {
+      "type": "offset",
+      "days": 70
+     },
+     "materials": [
+      "剪定ばさみ",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "各枝を1/3〜1/2の長さまで切り戻す",
+      "各枝に葉を1〜2枚残す",
+      "株の周りにスコップを差し込んで根を切る（根切り）",
+      "たっぷり追肥と灌水をする",
+      "30日ほどで新しい枝が伸び、秋ナスが穫れる"
+     ],
+     "caution": "思い切って切る。中途半端だと更新にならない。"
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 45,
+      "repeat": {
+       "everyDays": 3,
+       "untilDays": 160
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "ヘタの下が10〜12cmになったら",
+      "朝のうちにハサミで切る",
+      "小さめで早めに採るほど株がもつ",
+      "採った本数を記録する"
+     ],
+     "caution": "大きくしすぎると種が硬くなり、株も疲れる。"
+    }
+   ],
+   "frost": {
+    "autumn": "霜に当たると株が枯れます。残っている実をすべて収穫して片付けてください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 4,
+    "maxYears": 5,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」（JA秋田ふるさとは6〜7年）",
+    "note": "接ぎ木苗なら短くできます"
+   },
+   "frostKilled": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 60
+   },
+   "icon": "🍆"
+  },
+  {
+   "id": "piman",
+   "name": "ピーマン",
+   "type": "A",
+   "typeLabel": "長期収穫型",
+   "family": "ナス科",
+   "unit": "個",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "定植",
+    "window": [
+     "5中",
+     "5下"
+    ],
+    "spacing": "株間45cm",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7上",
+    "10下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100〜150gまく",
+      "深さ25cmまで耕す",
+      "2週間置く"
+     ]
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て・マルチ",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "黒マルチ"
+     ],
+     "steps": [
+      "完熟堆肥を1㎡あたり2kg、化成肥料を100g入れる",
+      "幅60cm・高さ10cmの畝を立てる",
+      "黒マルチを張る"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "仮支柱",
+      "麻ひも"
+     ],
+     "steps": [
+      "株間45cmで植え穴をあける",
+      "植え穴に水を入れてから植える",
+      "根鉢を崩さず浅めに",
+      "仮支柱を立てて八の字で結ぶ"
+     ]
+    },
+    {
+     "id": "pruning",
+     "name": "整枝（3本仕立て）",
+     "trigger": {
+      "type": "offset",
+      "days": 20
+     },
+     "materials": [
+      "支柱(150cm)×3",
+      "麻ひも"
+     ],
+     "steps": [
+      "一番花の下のわき芽2本を残す",
+      "それより下のわき芽はすべて取る",
+      "3本それぞれに支柱を立てて誘引する"
+     ],
+     "caution": "枝が非常に折れやすい。実が着くほど重くなるので誘引は早めに。"
+    },
+    {
+     "id": "first_fruit",
+     "name": "一番果の摘果",
+     "trigger": {
+      "type": "offset",
+      "days": 26
+     },
+     "steps": [
+      "一番果を小さいうちに採る",
+      "株を育てることを優先する"
+     ],
+     "caution": "一番果を残すと株の生長が止まり、秋までもたない。"
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 150
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1株ひと握りを畝の肩に施す",
+      "軽く土と混ぜる"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 40,
+      "repeat": {
+       "everyDays": 3,
+       "untilDays": 160
+      }
+     },
+     "materials": [
+      "ハサミ"
+     ],
+     "steps": [
+      "開花から15〜20日、5〜6cmになったら",
+      "ハサミで果柄を切る（引っ張ると枝が折れる）",
+      "採った数を記録する"
+     ],
+     "caution": "採り遅れると株が疲れる。赤くしたい場合は数個だけ残す。"
+    }
+   ],
+   "frost": {
+    "autumn": "霜に当たると株が枯れます。残っている実をすべて収穫して片付けてください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 4,
+    "maxYears": 5,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」"
+   },
+   "frostKilled": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 45
+   },
+   "icon": "🫑"
+  },
+  {
+   "id": "okra",
+   "name": "オクラ",
+   "type": "A",
+   "typeLabel": "長期収穫型",
+   "family": "アオイ科",
+   "unit": "本",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "5中",
+     "6上"
+    ],
+    "spacing": "株間30cm・1穴3〜4粒",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7上",
+    "9下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -14
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまいて耕す",
+      "1週間後に完熟堆肥2kg・化成肥料100gを入れる",
+      "深さ30cmまで耕す（直根性で深く張る）",
+      "幅60cm・高さ10cmの畝を立てる"
+     ]
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "じょうろ"
+     ],
+     "steps": [
+      "種を一晩水に浸けてからまく（発芽率が上がる）",
+      "株間30cmで深さ2cmのくぼみを作る",
+      "1か所に3〜4粒まく",
+      "覆土2cm、軽く鎮圧",
+      "たっぷり灌水する"
+     ],
+     "caution": "地温が18℃以上ないと発芽しない。焦って早まきしない。"
+    },
+    {
+     "id": "thin",
+     "name": "間引き → 1〜2本に",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "stage": "本葉2〜3枚"
+     },
+     "steps": [
+      "生育の良い1〜2本を残す",
+      "ハサミで地際から切る",
+      "残す株の株元に土寄せ"
+     ],
+     "caution": "2本立ちにすると生育が緩やかになり、実が硬くなりにくい。"
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 35,
+      "repeat": {
+       "everyDays": 21,
+       "untilDays": 110
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1株ひと握りを株の周りに施す",
+      "中耕して土と混ぜる"
+     ]
+    },
+    {
+     "id": "deleaf",
+     "name": "摘葉",
+     "trigger": {
+      "type": "offset",
+      "days": 55,
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 120
+      }
+     },
+     "steps": [
+      "収穫した節より下の葉を取り除く",
+      "株元の風通しを良くする",
+      "葉は1〜2枚残す程度まで整理してよい"
+     ],
+     "caution": "葉を残しすぎると日が当たらず実つきが落ちる。",
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 50,
+      "repeat": {
+       "everyDays": 2,
+       "untilDays": 120
+      }
+     },
+     "materials": [
+      "ハサミ"
+     ],
+     "steps": [
+      "開花から5〜7日、長さ7〜8cmで採る",
+      "ハサミで果柄を切る",
+      "毎日か1日おきに見回る",
+      "採った本数を記録する"
+     ],
+     "caution": "1日遅れると硬くて食べられない。迷ったら小さいうちに採る。"
+    }
+   ],
+   "frost": {
+    "autumn": "霜に当たると株が枯れます。残っている実をすべて収穫して片付けてください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 2,
+    "source": "JA秋田ふるさと 営農ワンポイントアドバイス（2024年10月）"
+   },
+   "frostKilled": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   }
+  },
+  {
+   "id": "basil",
+   "name": "バジル",
+   "type": "A",
+   "typeLabel": "長期収穫型",
+   "family": "シソ科",
+   "unit": "束",
+   "harvestMode": "cumulative",
+   "shadeOk": true,
+   "start": {
+    "action": "定植",
+    "window": [
+     "5中",
+     "6中"
+    ],
+    "spacing": "株間30cm",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "6中",
+    "10上"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり80gまいて耕す",
+      "完熟堆肥2kg・化成肥料80gを入れる",
+      "幅50cm・高さ10cmの畝を立てる"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間30cmで植え穴をあける",
+      "根鉢を崩さず植える",
+      "たっぷり灌水する"
+     ],
+     "caution": "乾燥に弱い。夏は朝の灌水を欠かさない。"
+    },
+    {
+     "id": "topping",
+     "name": "摘芯",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "stage": "本葉6〜8枚"
+     },
+     "steps": [
+      "先端を本葉2段目の上で切る",
+      "切った先は収穫して使える",
+      "わき芽が伸びて株が横に広がる"
+     ],
+     "caution": "摘芯しないと縦に伸びるだけで収量が伸びない。"
+    },
+    {
+     "id": "deflower",
+     "name": "花芽摘み",
+     "trigger": {
+      "type": "offset",
+      "days": 35,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 130
+      }
+     },
+     "steps": [
+      "枝先に穂状の蕾が出ていないか見る",
+      "見つけ次第、蕾の下で切る",
+      "切った枝も収穫として使う"
+     ],
+     "caution": "花を咲かせると葉が硬くなり香りが落ちる。蕾は必ず摘む。",
+     "routine": true
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 40,
+      "repeat": {
+       "everyDays": 30,
+       "untilDays": 120
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1株ひとつまみを株元から離して施す",
+      "中耕して混ぜる"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 140
+      }
+     },
+     "materials": [
+      "ハサミ"
+     ],
+     "steps": [
+      "枝の先端から、葉の付け根の上で切る",
+      "切った節から2本の新芽が出る",
+      "株の1/3以上は一度に採らない",
+      "採った束数を記録する"
+     ]
+    }
+   ],
+   "frost": {
+    "autumn": "霜で一晩で枯れます。残りの葉をすべて摘み取ってください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1,
+    "source": "出典未確認（暫定値）"
+   },
+   "frostKilled": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   },
+   "icon": "🌿"
+  },
+  {
+   "id": "sweetpotato",
+   "name": "さつまいも",
+   "type": "B",
+   "typeLabel": "一発収穫型",
+   "family": "ヒルガオ科",
+   "unit": "本",
+   "harvestMode": "single",
+   "start": {
+    "action": "挿し苗",
+    "window": [
+     "5中",
+     "6中"
+    ],
+    "spacing": "株間30〜35cm・1条",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "10上",
+    "10下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "畝立て（肥料は控えめ）",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "黒マルチ",
+      "くわ"
+     ],
+     "steps": [
+      "前作の肥料が残っている畝を選ぶ（新たな元肥は基本不要）",
+      "やせ地なら草木灰かカリ主体の肥料を少量だけ",
+      "深さ30cmまで耕し、幅60cm・高さ30cmの高畝を立てる",
+      "黒マルチを張る"
+     ],
+     "caution": "窒素を入れるとつるばかり茂って芋がつかない（つるボケ）。肥料はむしろ入れない。"
+    },
+    {
+     "id": "plant",
+     "name": "挿し苗",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "挿し苗",
+      "じょうろ"
+     ],
+     "steps": [
+      "苗は日陰で1〜2日おいてしおれさせてから挿す",
+      "株間30〜35cmで、茎を寝かせるように斜めに挿す",
+      "節が3〜4個 土に埋まるようにする（埋まった節が芋になる）",
+      "葉先が地上に出ていればよい",
+      "たっぷり灌水する"
+     ],
+     "caution": "垂直に挿すと芋の数が減る。寝かせて節を多く埋めるのがコツ。"
+    },
+    {
+     "id": "rooting",
+     "name": "活着の確認",
+     "trigger": {
+      "type": "offset",
+      "days": 10
+     },
+     "steps": [
+      "葉が立ち上がっていれば活着",
+      "しおれたままの株は植え直す",
+      "活着までは乾いたら灌水する"
+     ]
+    },
+    {
+     "id": "vine",
+     "name": "つる返し",
+     "trigger": {
+      "type": "offset",
+      "days": 60,
+      "repeat": {
+       "everyDays": 21,
+       "untilDays": 130
+      }
+     },
+     "steps": [
+      "伸びたつるを持ち上げる",
+      "節から出た根（不定根）を引きはがす",
+      "つるを畝の上に戻す"
+     ],
+     "caution": "不定根を放置すると養分がそちらに流れ、肝心の芋が太らない。",
+     "routine": true
+    },
+    {
+     "id": "test_dig",
+     "name": "試し掘り",
+     "trigger": {
+      "type": "offset",
+      "days": 130
+     },
+     "steps": [
+      "株元を1株だけ掘って芋の太さを見る",
+      "細ければ2週間待つ"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 140,
+      "notAfter": {
+       "anchor": "firstFrost",
+       "days": -7
+      }
+     },
+     "materials": [
+      "スコップ",
+      "収穫かご"
+     ],
+     "steps": [
+      "晴天が続いた日に掘る",
+      "つるを先に刈り取る",
+      "株から30cm離してスコップを差し込む",
+      "芋を傷つけないよう手で掘り出す",
+      "掘った本数を記録する",
+      "2〜3時間 天日で乾かしてから新聞紙に包む"
+     ],
+     "caution": "霜に当たると腐る。10月中には掘り上げる。掘りたては甘くない、2週間以上貯蔵する。"
+    }
+   ],
+   "frost": {
+    "autumn": "霜に当たると芋が傷んで貯蔵中に腐ります。霜の前に掘り上げてください。",
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 2,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "JA秋田ふるさと 営農ワンポイントアドバイス（2024年10月）：連作障害が少ない"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30,
+    "preferred": 35
+   },
+   "icon": "🍠"
+  },
+  {
+   "id": "corn",
+   "name": "トウモロコシ",
+   "type": "B",
+   "typeLabel": "一発収穫型",
+   "family": "イネ科",
+   "unit": "本",
+   "harvestMode": "single",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "4中",
+     "5中"
+    ],
+    "spacing": "株間30cm・必ず2条以上",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7上",
+    "7下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -14
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまいて耕す",
+      "1週間後に完熟堆肥2kg・化成肥料120gを入れる",
+      "幅90cmの広い畝を立てる（2条植えのため）"
+     ],
+     "caution": "1列だけの畝にしない。受粉できず実が入らない。"
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防鳥ネット",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間30cm・条間40cmで、2条以上まとめてまく",
+      "1か所に3粒、深さ3cm",
+      "覆土して軽く鎮圧、たっぷり灌水",
+      "発芽まで防鳥ネットをかける"
+     ],
+     "caution": "必ず2列以上・四角い配置でまく。1列だと花粉が届かず歯抜けになる。鳥に種を掘られる被害が多い。"
+    },
+    {
+     "id": "thin",
+     "name": "間引き → 1本に",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "stage": "本葉3〜4枚"
+     },
+     "steps": [
+      "最も生育の良い1本を残す",
+      "残りはハサミで地際から切る",
+      "株元に土寄せする"
+     ]
+    },
+    {
+     "id": "fert",
+     "name": "追肥・土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 20,
+       "untilDays": 70
+      }
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり50gを条間に施す",
+      "中耕して株元にしっかり土寄せする",
+      "分けつ（わき芽）は取らずに残す"
+     ],
+     "caution": "背が高く倒れやすい。土寄せは毎回しっかり行う。"
+    },
+    {
+     "id": "pollinate",
+     "name": "人工授粉",
+     "trigger": {
+      "type": "offset",
+      "days": 55
+     },
+     "steps": [
+      "雄穂（てっぺんの穂）が開いたら",
+      "雄穂を1本切り取る",
+      "他の株の絹糸（ひげ）に直接振りかける",
+      "風のない朝のうちに行う"
+     ],
+     "caution": "ひげ1本が粒1つに対応する。受粉が不十分だと歯抜けになる。"
+    },
+    {
+     "id": "thin_ear",
+     "name": "摘果（1株1本に）",
+     "trigger": {
+      "type": "offset",
+      "days": 60
+     },
+     "steps": [
+      "一番上の実だけ残す",
+      "2番目以降の実は早めに取る",
+      "取った若い実はヤングコーンとして食べられる"
+     ],
+     "caution": "2本残すとどちらも小さくなる。"
+    },
+    {
+     "id": "pest",
+     "name": "アワノメイガ対策",
+     "trigger": {
+      "type": "offset",
+      "days": 55,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 90
+      }
+     },
+     "steps": [
+      "雄穂と茎の境目に食い入った穴・フンがないか見る",
+      "見つけたら茎を割って捕殺する",
+      "受粉が済んだら雄穂を切り取ると被害が減る"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 85
+     },
+     "materials": [
+      "収穫かご"
+     ],
+     "steps": [
+      "絹糸（ひげ）が濃い茶色に枯れてから20日前後",
+      "皮を少しむいて粒の充実を確認する",
+      "気温の低い早朝に採る",
+      "穂を下に折るようにもぎ取る",
+      "採った本数を記録する"
+     ],
+     "caution": "収穫した瞬間から甘みが落ちる。採ったらすぐ茹でる。"
+    }
+   ],
+   "frost": {
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 2,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "JA秋田ふるさと 営農ワンポイントアドバイス（2024年10月）：連作障害が少ない"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   },
+   "icon": "🌽",
+   "rows": 2
+  },
+  {
+   "id": "watermelon",
+   "name": "スイカ",
+   "type": "B",
+   "typeLabel": "一発収穫型",
+   "family": "ウリ科",
+   "unit": "個",
+   "harvestMode": "single",
+   "start": {
+    "action": "定植",
+    "window": [
+     "5上",
+     "5中"
+    ],
+    "spacing": "株間100cm・つるを広げる場所が要る",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7下",
+    "8中"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100〜150gまく",
+      "深さ30cmまで耕す",
+      "2週間置く"
+     ]
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て・マルチ",
+     "trigger": {
+      "type": "offset",
+      "days": -14
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "黒マルチ",
+      "敷きわら"
+     ],
+     "steps": [
+      "完熟堆肥3kg・化成肥料80gを植え穴に集中して入れる",
+      "幅100cm以上の広い畝を立てる",
+      "つるを這わせる幅2m以上のスペースを確保する",
+      "黒マルチを張る"
+     ],
+     "caution": "元肥が多すぎるとつるボケして着果しない。控えめに。"
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "ホットキャップ",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間100cmで植え穴をあける",
+      "植え穴に水を入れてから植える",
+      "根鉢を崩さず浅めに植える",
+      "ホットキャップまたは行灯で保温・風よけする"
+     ],
+     "caution": "低温と風に弱い。5月上旬はまだ保温が要る。"
+    },
+    {
+     "id": "topping",
+     "name": "親づる摘芯",
+     "trigger": {
+      "type": "offset",
+      "days": 15,
+      "stage": "本葉5〜6枚"
+     },
+     "steps": [
+      "親づるの先端を摘み取る",
+      "出てきた子づるのうち勢いの良い3〜4本を残す",
+      "残りの子づるは付け根から取る",
+      "子づるを放射状に広げて配置する"
+     ],
+     "caution": "摘芯しないと親づるだけ伸びて実がつきにくい。"
+    },
+    {
+     "id": "train",
+     "name": "整枝・つる押さえ",
+     "trigger": {
+      "type": "offset",
+      "days": 30,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 70
+      }
+     },
+     "materials": [
+      "Uピン"
+     ],
+     "steps": [
+      "子づるから出る孫づるを取る（着果節の前後は残す）",
+      "つるが重ならないよう放射状に整える",
+      "Uピンでつるを固定して風で動かないようにする"
+     ],
+     "routine": true
+    },
+    {
+     "id": "pollinate",
+     "name": "人工授粉（受粉日を記録）",
+     "trigger": {
+      "type": "offset",
+      "days": 45,
+      "repeat": {
+       "everyDays": 3,
+       "untilDays": 65
+      }
+     },
+     "materials": [
+      "ラベル・タグ",
+      "油性ペン"
+     ],
+     "steps": [
+      "子づるの15〜20節目の雌花を狙う",
+      "晴れた日の朝9時までに行う",
+      "雄花の花びらを取り、花粉を雌しべにこすりつける",
+      "受粉した日をタグに書いて実の近くに結ぶ",
+      "1株2〜3個に絞る"
+     ],
+     "caution": "受粉日を記録しないと収穫適期が分からない。これが最重要作業。",
+     "routine": true
+    },
+    {
+     "id": "fert",
+     "name": "追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 55
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "実がこぶし大になってから施す",
+      "1株50gをつるの先端付近に",
+      "着果前には絶対に追肥しない"
+     ],
+     "caution": "着果前の追肥はつるボケの原因。必ず実が着いてから。"
+    },
+    {
+     "id": "mat",
+     "name": "玉直し・敷きわら",
+     "trigger": {
+      "type": "offset",
+      "days": 60,
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 95
+      }
+     },
+     "materials": [
+      "敷きわら"
+     ],
+     "steps": [
+      "実の下に敷きわらを敷く",
+      "実を少し回して日が当たる面を変える",
+      "地面に接した面の変色を防ぐ"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 95
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "タグの受粉日から40〜45日を数える",
+      "実のついた節の巻きひげが枯れているか確認",
+      "叩いてポンポンと澄んだ音がするか確認",
+      "果柄をハサミで切る",
+      "採った個数を記録する"
+     ],
+     "caution": "早すぎると甘くない、遅いと水っぽくなる。受粉日からの日数が一番あてになる。"
+    }
+   ],
+   "frost": {
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 4,
+   "rotation": {
+    "minYears": 6,
+    "maxYears": 7,
+    "source": "JA秋田ふるさと 営農ワンポイントアドバイス（2024年10月）",
+    "note": "接ぎ木苗なら大幅に短くできます"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 100
+   },
+   "icon": "🍉"
+  },
+  {
+   "id": "cabbage",
+   "name": "キャベツ",
+   "type": "B",
+   "typeLabel": "一発収穫型",
+   "family": "アブラナ科",
+   "unit": "個",
+   "harvestMode": "single",
+   "start": {
+    "action": "定植",
+    "window": [
+     "8下",
+     "9中"
+    ],
+    "spacing": "株間40cm・条間45cm"
+   },
+   "harvestWindow": [
+    "11上",
+    "1下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり120gまく",
+      "深さ25cmまで耕す",
+      "2週間置く"
+     ],
+     "caution": "酸性土壌では根こぶ病が出やすい。石灰は必ず入れる。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥2kg・化成肥料120gを入れる",
+      "幅70cm・高さ10cmの畝を立てる"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "防虫ネット",
+      "支柱(トンネル用)",
+      "じょうろ"
+     ],
+     "steps": [
+      "本葉5〜6枚の苗を選ぶ",
+      "株間40cmで植え穴をあける",
+      "植え穴に水を入れてから植える",
+      "根鉢の上面が地面と同じ高さになるよう植える",
+      "たっぷり灌水する",
+      "その日のうちに防虫ネットをトンネル掛けし、裾を土で密閉する"
+     ],
+     "caution": "ネットを翌日に回すと、その一晩で産卵される。必ず定植と同日に。"
+    },
+    {
+     "id": "pest",
+     "name": "害虫チェック",
+     "trigger": {
+      "type": "offset",
+      "days": 10,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 70
+      }
+     },
+     "steps": [
+      "ネットをめくり、葉裏のアオムシ・コナガ・ヨトウムシを探す",
+      "フンが落ちていたら必ず近くに虫がいる",
+      "見つけたら捕殺する",
+      "ネットの裾に隙間がないか確認して戻す"
+     ],
+     "caution": "結球が始まると中に潜り込んで手が出せなくなる。それまでに叩く。",
+     "routine": true
+    },
+    {
+     "id": "fert1",
+     "name": "追肥1回目・土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 20
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり40gを条間に施す",
+      "中耕して株元に土寄せする"
+     ]
+    },
+    {
+     "id": "fert2",
+     "name": "追肥2回目（結球前・最終）",
+     "trigger": {
+      "type": "offset",
+      "days": 45
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "葉が立ち上がって巻き始める直前に施す",
+      "1㎡あたり40gを条間に",
+      "中耕・土寄せする"
+     ],
+     "caution": "結球開始前の肥料で球の大きさが決まる。ここを外すと小さいまま。"
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 90
+     },
+     "materials": [
+      "包丁",
+      "収穫かご"
+     ],
+     "steps": [
+      "球を上から手で押して硬く締まっているか確認する",
+      "球の根元に包丁を入れて切る",
+      "採った数を記録する",
+      "畑に置いたままでも霜に当たれば甘くなる"
+     ],
+     "caution": "締まってから放置しすぎると裂球する。硬くなったら順次採る。"
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」（JA秋田ふるさとは1〜2年）"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 40
+   },
+   "icon": "🥬"
+  },
+  {
+   "id": "edamame",
+   "name": "枝豆",
+   "type": "B",
+   "typeLabel": "一発収穫型",
+   "family": "マメ科",
+   "unit": "株",
+   "harvestMode": "single",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "5上",
+     "6中"
+    ],
+    "spacing": "株間30cm・1穴3粒",
+    "notBefore": {
+     "anchor": "lastFrost",
+     "days": 14
+    }
+   },
+   "harvestWindow": [
+    "7中",
+    "8下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て（肥料控えめ）",
+     "trigger": {
+      "type": "offset",
+      "days": -7
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまいて耕す",
+      "完熟堆肥を1㎡あたり1.5kg入れる",
+      "化成肥料は入れないか、ごく少量（1㎡30g程度）に留める",
+      "幅60cm・高さ10cmの畝を立てる"
+     ],
+     "caution": "マメ科は根粒菌が窒素を作る。窒素を入れると葉ばかり茂って実がつかない。"
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防鳥ネット",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間30cmで深さ2cmのくぼみを作る",
+      "1か所に3粒まく",
+      "覆土2cm、軽く鎮圧",
+      "灌水は控えめに（吸水しすぎると種が腐る）",
+      "すぐ防鳥ネットをかける"
+     ],
+     "caution": "発芽直後の双葉をハト・カラスに食べられるのが最大の失敗要因。ネットは必須。"
+    },
+    {
+     "id": "thin",
+     "name": "間引き → 2本に",
+     "trigger": {
+      "type": "offset",
+      "days": 15,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "生育の揃った2本を残す",
+      "残りはハサミで地際から切る",
+      "ネットは本葉が展開するまで外さない"
+     ]
+    },
+    {
+     "id": "hilling",
+     "name": "中耕・土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 25
+     },
+     "steps": [
+      "条間の土をほぐす",
+      "株元にしっかり土を寄せる",
+      "倒伏防止と、根張りの促進になる"
+     ]
+    },
+    {
+     "id": "fert",
+     "name": "追肥（開花期）",
+     "trigger": {
+      "type": "offset",
+      "days": 35
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "花が咲き始めたら1㎡あたり30gを条間に施す",
+      "中耕して土寄せ",
+      "以降の追肥は不要"
+     ],
+     "caution": "開花期の水切れは莢が実らない直接原因。乾いたらたっぷり灌水。"
+    },
+    {
+     "id": "pest",
+     "name": "カメムシ対策",
+     "trigger": {
+      "type": "offset",
+      "days": 45,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 85
+      }
+     },
+     "steps": [
+      "莢にカメムシが付いていないか見る",
+      "朝の動きが鈍いうちに捕殺する",
+      "吸われた莢は実が入らない"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 80
+     },
+     "materials": [
+      "収穫かご"
+     ],
+     "steps": [
+      "莢がぷっくり膨らみ、指で押すと豆が飛び出す頃",
+      "株ごと引き抜く",
+      "採った株数を記録する",
+      "採ったその日のうちに茹でる"
+     ],
+     "caution": "適期は3〜4日しかない。遅れると硬くなり甘みが落ちる。"
+    }
+   ],
+   "frost": {
+    "spring": "植えて間もない苗は遅霜で枯れます。不織布やホットキャップで覆ってください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 4,
+    "maxYears": 5,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   },
+   "icon": "🫛"
+  },
+  {
+   "id": "broccoli",
+   "name": "ブロッコリー",
+   "type": "B",
+   "typeLabel": "一発収穫型＋側花蕾",
+   "family": "アブラナ科",
+   "unit": "個",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "定植",
+    "window": [
+     "8下",
+     "9中"
+    ],
+    "spacing": "株間40cm・条間45cm",
+    "lateUntil": "9下",
+    "lateSource": "JA西春日井 家庭菜園：植えつけ 8月下旬〜9月下旬"
+   },
+   "harvestWindow": [
+    "11上",
+    "2下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり120gまく",
+      "深さ25cmまで耕す",
+      "2週間置く"
+     ],
+     "caution": "酸性土壌では根こぶ病が出やすい。石灰は必ず。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥2kg・化成肥料120gを入れる",
+      "幅70cm・高さ10cmの畝を立てる"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "防虫ネット",
+      "支柱(トンネル用)"
+     ],
+     "steps": [
+      "本葉5〜6枚の苗を選ぶ",
+      "株間40cmで植える",
+      "根鉢の上面を地面と同じ高さに",
+      "たっぷり灌水する",
+      "その日のうちに防虫ネットを掛け、裾を密閉する"
+     ],
+     "caution": "定植と同日にネット。翌日では遅い。"
+    },
+    {
+     "id": "pest",
+     "name": "害虫チェック",
+     "trigger": {
+      "type": "offset",
+      "days": 10,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 70
+      }
+     },
+     "steps": [
+      "葉裏のアオムシ・コナガ・ヨトウムシを探す",
+      "フンを見つけたら近くに必ず虫がいる",
+      "捕殺してネットを戻す"
+     ],
+     "caution": "花蕾ができてから虫が入ると洗っても取れない。それまでに叩く。",
+     "routine": true
+    },
+    {
+     "id": "fert1",
+     "name": "追肥1回目・土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 20
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり40gを条間に施す",
+      "中耕・土寄せする"
+     ]
+    },
+    {
+     "id": "fert2",
+     "name": "追肥2回目（花蕾形成前）",
+     "trigger": {
+      "type": "offset",
+      "days": 45
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "中心に小さな花蕾が見え始める前に施す",
+      "1㎡あたり40g",
+      "中耕・土寄せ（株が倒れやすくなる時期）"
+     ],
+     "caution": "ここの肥料で頂花蕾の大きさが決まる。"
+    },
+    {
+     "id": "harvest",
+     "name": "頂花蕾の収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 80
+     },
+     "materials": [
+      "包丁"
+     ],
+     "steps": [
+      "蕾が固く締まっているうちに採る（直径12〜15cm）",
+      "茎を10〜15cm付けて斜めに切る",
+      "側花蕾を穫るため株は抜かずに残す",
+      "採った数を記録する"
+     ],
+     "caution": "蕾が緩んで黄色い花が見えたら採り遅れ。寒い時期でも週2回は見る。"
+    },
+    {
+     "id": "side",
+     "name": "側花蕾の収穫",
+     "kind": "harvest",
+     "note": "頂花蕾の後、わき芽から次々に出る小さな花蕾。",
+     "trigger": {
+      "type": "offset",
+      "days": 95,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 170
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "葉の付け根から出た小さな花蕾を切り取る",
+      "1か月に1回、軽く追肥する",
+      "春まで繰り返し穫れる",
+      "採った数を記録する"
+     ]
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1,
+    "source": "アタリヤ農園「連作障害と輪作」"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 40
+   },
+   "icon": "🥦"
+  },
+  {
+   "id": "spinach",
+   "name": "ほうれん草",
+   "type": "C",
+   "typeLabel": "直播き間引き型",
+   "family": "ヒユ科",
+   "unit": "束",
+   "harvestMode": "cumulative",
+   "shadeOk": true,
+   "start": {
+    "action": "直播き",
+    "window": [
+     "9中",
+     "10下"
+    ],
+    "spacing": "条間20cm・1cm間隔のすじまき",
+    "lateUntil": "11下",
+    "lateSource": "群馬県 ぐんまアグリネット：品種により8月上旬〜3月中旬まき。11月下旬までとしたのはアプリの控えめな区切り",
+    "lateNote": "寒い時期はトンネルやべたがけで保温（JA西春日井）"
+   },
+   "harvestWindow": [
+    "10下",
+    "12下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰を多めに）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり150gまく（多め）",
+      "深さ25cmまで耕す",
+      "2週間置く"
+     ],
+     "caution": "ほうれん草は酸性土壌に最も弱い野菜。石灰不足だと発芽しても黄色くなって育たない。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -7
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥2kg・化成肥料100gを入れる",
+      "よく耕して幅60cm・高さ10cmの畝を立てる",
+      "表面を平らにならす"
+     ]
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防虫ネット",
+      "じょうろ"
+     ],
+     "steps": [
+      "条間20cmで深さ1cmのまき溝を作る",
+      "1cm間隔ですじまきする",
+      "覆土1cm、手で軽く鎮圧",
+      "たっぷり灌水する",
+      "防虫ネットをかける"
+     ],
+     "caution": "種が硬い場合は一晩水に浸けてからまくと発芽が揃う。"
+    },
+    {
+     "id": "thin1",
+     "name": "間引き1回目 → 株間3cm",
+     "trigger": {
+      "type": "offset",
+      "days": 15,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "混み合ったところを抜いて株間3cmにする",
+      "子葉の形が悪い株から抜く",
+      "株元に軽く土を寄せる"
+     ]
+    },
+    {
+     "id": "thin2",
+     "name": "間引き2回目 ＋ 追肥 → 株間6cm",
+     "trigger": {
+      "type": "offset",
+      "days": 28,
+      "stage": "本葉3〜4枚"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "株間6cmになるよう間引く",
+      "化成肥料を1㎡あたり30g条間に施す",
+      "中耕して土と混ぜる",
+      "間引き菜は食べられる"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 45,
+      "repeat": {
+       "everyDays": 5,
+       "untilDays": 90
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "草丈20〜25cmになった株から順に",
+      "根元にハサミを入れて切る",
+      "大きい株から間引くように穫る",
+      "採った束数を記録する",
+      "霜に2〜3回当たると甘みが増す"
+     ],
+     "caution": "とう立ちが始まったら一気に穫り切る。"
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」"
+   },
+   "layout": "band"
+  },
+  {
+   "id": "carrot",
+   "name": "にんじん",
+   "type": "C",
+   "typeLabel": "直播き間引き型",
+   "family": "セリ科",
+   "unit": "本",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "7中",
+     "8中"
+    ],
+    "spacing": "条間20cm・1cm間隔のすじまき"
+   },
+   "harvestWindow": [
+    "11上",
+    "12下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（深耕・石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰",
+      "スコップ"
+     ],
+     "steps": [
+      "深さ30cmまで深く耕す",
+      "石・土塊・未熟な有機物を丁寧に取り除く",
+      "苦土石灰を1㎡あたり100gまく",
+      "2週間置く"
+     ],
+     "caution": "障害物があると又根になる。大根と同じく、土づくりで結果が決まる。"
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -7
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥2kg・化成肥料100gを入れる",
+      "よく耕して均一に混ぜる",
+      "幅60cm・高さ10cmの畝を立て、表面を平らに"
+     ],
+     "caution": "未熟堆肥は又根と二股の原因。必ず完熟品を。"
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "不織布または新聞紙",
+      "じょうろ"
+     ],
+     "steps": [
+      "条間20cmで浅いまき溝を作る",
+      "1cm間隔ですじまきする",
+      "覆土は5mmと薄く（好光性種子＝光がないと発芽しない）",
+      "手のひらでしっかり鎮圧する",
+      "たっぷり灌水する",
+      "不織布か新聞紙をかけて乾燥を防ぐ"
+     ],
+     "caution": "覆土を厚くすると発芽しない。にんじんは発芽さえすれば8割成功。"
+    },
+    {
+     "id": "germinate",
+     "name": "発芽まで毎日灌水",
+     "trigger": {
+      "type": "offset",
+      "days": 2,
+      "repeat": {
+       "everyDays": 2,
+       "untilDays": 14
+      }
+     },
+     "steps": [
+      "表土を絶対に乾かさない",
+      "朝夕に軽く灌水する",
+      "発芽したら不織布・新聞紙を外す"
+     ],
+     "caution": "夏まきは1日乾かしただけで発芽しない。ここが最大の関門。",
+     "routine": true
+    },
+    {
+     "id": "thin1",
+     "name": "間引き1回目 → 株間3cm",
+     "trigger": {
+      "type": "offset",
+      "days": 20,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "株間3cmになるよう間引く",
+      "葉の形が悪い株から抜く",
+      "株元に土を寄せる"
+     ]
+    },
+    {
+     "id": "thin2",
+     "name": "間引き2回目 ＋ 追肥 → 株間10cm",
+     "trigger": {
+      "type": "offset",
+      "days": 40,
+      "stage": "本葉4〜5枚"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "株間10cmになるよう間引く",
+      "化成肥料を1㎡あたり30g条間に施す",
+      "中耕して株元に土寄せする",
+      "間引き菜は葉ごと食べられる"
+     ]
+    },
+    {
+     "id": "hilling",
+     "name": "土寄せ",
+     "trigger": {
+      "type": "offset",
+      "days": 60
+     },
+     "steps": [
+      "根の肩が土から出ていないか見る",
+      "出ていれば土を寄せて覆う"
+     ],
+     "caution": "肩が日に当たると緑化して固くなる。"
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 110,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 160
+      }
+     },
+     "materials": [
+      "収穫かご"
+     ],
+     "steps": [
+      "肩の直径が4〜5cmあるか土を掘って確認",
+      "葉の付け根を持って垂直に抜く",
+      "大きいものから順次穫る",
+      "採った本数を記録する",
+      "霜が降りる地域は土をかぶせて越冬保存できる"
+     ],
+     "caution": "採り遅れると裂根する。"
+    }
+   ],
+   "frost": {
+    "autumn": "強い霜が続くと肩が凍みます。土寄せで肩を隠してください。"
+   },
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」：連作しても害が少ない"
+   },
+   "layout": "band",
+   "icon": "🥕"
+  },
+  {
+   "id": "leaflettuce",
+   "name": "リーフレタス",
+   "type": "C",
+   "typeLabel": "直播き間引き型",
+   "family": "キク科",
+   "unit": "株",
+   "harvestMode": "cumulative",
+   "shadeOk": true,
+   "start": {
+    "action": "直播き",
+    "window": [
+     "9上",
+     "10上"
+    ],
+    "spacing": "株間25cm・条間30cm"
+   },
+   "harvestWindow": [
+    "10上",
+    "12上"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -10
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまいて耕す",
+      "1週間後に完熟堆肥2kg・化成肥料80gを入れる",
+      "幅60cm・高さ10cmの畝を立てる"
+     ]
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防虫ネット",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間25cmで浅いくぼみを作る",
+      "1か所に4〜5粒まく",
+      "覆土はごく薄く（好光性種子。種が隠れる程度）",
+      "手で軽く押さえる",
+      "たっぷり灌水し、防虫ネットをかける"
+     ],
+     "caution": "覆土が厚いと発芽しない。ほぼ土をかけないつもりで。"
+    },
+    {
+     "id": "thin1",
+     "name": "間引き1回目 → 2本に",
+     "trigger": {
+      "type": "offset",
+      "days": 12,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "生育の良い2本を残す",
+      "形の悪い株を抜く"
+     ]
+    },
+    {
+     "id": "thin2",
+     "name": "間引き2回目 → 1本に ＋ 追肥",
+     "trigger": {
+      "type": "offset",
+      "days": 25,
+      "stage": "本葉4〜5枚"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "最も良い1本を残す",
+      "化成肥料を1㎡あたり30g条間に施す",
+      "中耕して土寄せする"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫（かき取り）",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 45,
+      "repeat": {
+       "everyDays": 7,
+       "untilDays": 90
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "外葉から3〜4枚ずつかき取る",
+      "中心の芽は残す",
+      "株ごと抜かずに置けば1か月以上穫れる",
+      "採った株数を記録する"
+     ],
+     "caution": "株ごと抜くのは最後に。かき取りのほうが収量が倍近くになる。"
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 1,
+    "maxYears": 1,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」（レタス）"
+   },
+   "layout": "plant",
+   "spacingCm": {
+    "min": 25
+   },
+   "icon": "🥗"
+  },
+  {
+   "id": "kabu",
+   "name": "カブ",
+   "type": "C",
+   "typeLabel": "直播き間引き型",
+   "family": "アブラナ科",
+   "unit": "個",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "直播き",
+    "window": [
+     "9上",
+     "10上"
+    ],
+    "spacing": "条間20cm・1cm間隔のすじまき"
+   },
+   "harvestWindow": [
+    "10下",
+    "12上"
+   ],
+   "tasks": [
+    {
+     "id": "prep_lime",
+     "name": "土づくり（石灰）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまく",
+      "深さ20〜25cmまで耕す",
+      "石や土塊を取り除く",
+      "2週間置く"
+     ]
+    },
+    {
+     "id": "prep_bed",
+     "name": "元肥・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -7
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "完熟堆肥2kg・化成肥料100gを入れる",
+      "よく耕して幅60cm・高さ10cmの畝を立てる",
+      "表面を平らにならす"
+     ]
+    },
+    {
+     "id": "sow",
+     "name": "播種",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "種",
+      "防虫ネット",
+      "支柱(トンネル用)",
+      "じょうろ"
+     ],
+     "steps": [
+      "条間20cmで深さ1cmのまき溝を作る",
+      "1cm間隔ですじまきする",
+      "覆土1cm、軽く鎮圧",
+      "たっぷり灌水する",
+      "その日のうちに防虫ネットを掛け、裾を密閉する"
+     ],
+     "caution": "アブラナ科。発芽直後の双葉が最も狙われる。ネットは播種と同日に。"
+    },
+    {
+     "id": "thin1",
+     "name": "間引き1回目 → 株間5cm",
+     "trigger": {
+      "type": "offset",
+      "days": 12,
+      "stage": "本葉1〜2枚"
+     },
+     "steps": [
+      "株間5cmになるよう間引く",
+      "子葉の形が悪い株・虫食い株から抜く",
+      "株元に軽く土を寄せる"
+     ]
+    },
+    {
+     "id": "thin2",
+     "name": "間引き2回目 ＋ 追肥 → 株間10cm",
+     "trigger": {
+      "type": "offset",
+      "days": 25,
+      "stage": "本葉3〜4枚"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "株間10cmになるよう間引く",
+      "化成肥料を1㎡あたり30g条間に施す",
+      "中耕して土寄せする",
+      "間引き菜はおひたしにできる"
+     ]
+    },
+    {
+     "id": "pest",
+     "name": "害虫チェック",
+     "trigger": {
+      "type": "offset",
+      "days": 15,
+      "repeat": {
+       "everyDays": 10,
+       "untilDays": 60
+      }
+     },
+     "steps": [
+      "葉裏のアオムシ・コナガ・アブラムシを確認",
+      "見つけたら捕殺する",
+      "ネットの裾に隙間がないか確認"
+     ],
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "offset",
+      "days": 50,
+      "repeat": {
+       "everyDays": 5,
+       "untilDays": 85
+      }
+     },
+     "materials": [
+      "収穫かご"
+     ],
+     "steps": [
+      "直径5cmになった株から順に抜く",
+      "葉の付け根を持って垂直に引き抜く",
+      "大きいものから穫って残りを太らせる",
+      "採った数を記録する"
+     ],
+     "caution": "採り遅れると裂根し、すが入る。小カブは直径5cmで採り始める。"
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」：連作しても害が少ない"
+   },
+   "layout": "band"
+  },
+  {
+   "id": "asparagus",
+   "name": "アスパラ",
+   "type": "D",
+   "typeLabel": "多年生（10年もの）",
+   "family": "キジカクシ科",
+   "unit": "本",
+   "harvestMode": "cumulative",
+   "start": {
+    "action": "株の定植",
+    "window": [
+     "3中",
+     "4中"
+    ],
+    "spacing": "株間40cm・一度植えたら10年動かさない"
+   },
+   "harvestWindow": [
+    "4上",
+    "5下"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり（深く・たっぷり）",
+     "trigger": {
+      "type": "offset",
+      "days": -21
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)",
+      "スコップ"
+     ],
+     "steps": [
+      "深さ40cm以上掘り下げる",
+      "完熟堆肥を1㎡あたり5kg（通常の倍）入れる",
+      "苦土石灰100g・化成肥料100gを入れる",
+      "よく混ぜて埋め戻し、幅80cmの高畝を立てる"
+     ],
+     "caution": "10年同じ場所で穫る。ここでの土づくりがすべてを決める。手を抜かない。"
+    },
+    {
+     "id": "plant",
+     "name": "株の定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "大株（2年生根株）",
+      "じょうろ"
+     ],
+     "steps": [
+      "深さ25cmの植え穴を掘る",
+      "芽を上にして根を放射状に広げて置く",
+      "土を10cmかぶせる（浅めにしておく）",
+      "株間40cmを確保する",
+      "たっぷり灌水する",
+      "芽が伸びるにつれて土を足していく"
+     ],
+     "caution": "1〜2年目は収穫しない。株を太らせることに専念する。"
+    },
+    {
+     "id": "fert_spring",
+     "name": "春の追肥",
+     "trigger": {
+      "type": "calendar",
+      "when": "3上"
+     },
+     "materials": [
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "芽が出る前に施す",
+      "完熟堆肥2kg・化成肥料80gを畝の肩に",
+      "中耕して混ぜる"
+     ]
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "note": "3年目以降。1〜2年目は穫らずに株を育てる。",
+     "trigger": {
+      "type": "calendar",
+      "when": "4上",
+      "repeat": {
+       "everyDays": 2,
+       "untilDays": 60
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "太さ1cm以上・高さ25cmになったものを",
+      "地際でハサミを入れて切る",
+      "細い芽は残して立茎に回す",
+      "春の収穫は6月上旬で必ず打ち切る",
+      "採った本数を記録する"
+     ],
+     "caution": "穫り続けると株が枯れる。6月には必ずやめて茂らせる。"
+    },
+    {
+     "id": "standing",
+     "name": "立茎（夏に向けて茂らせる）",
+     "trigger": {
+      "type": "calendar",
+      "when": "6上"
+     },
+     "materials": [
+      "支柱",
+      "麻ひも"
+     ],
+     "steps": [
+      "太い芽を3〜5本選んで残す",
+      "残した芽は収穫せず、そのまま伸ばす",
+      "1.5m以上になるので支柱とひもで囲って倒伏を防ぐ",
+      "この葉が来年の芽を作る"
+     ],
+     "caution": "立茎を怠ると翌年の収量が激減する。"
+    },
+    {
+     "id": "fert_summer",
+     "name": "夏の追肥",
+     "trigger": {
+      "type": "calendar",
+      "when": "7上"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1㎡あたり50gを畝の肩に施す",
+      "中耕して土と混ぜる",
+      "乾いたらたっぷり灌水する"
+     ]
+    },
+    {
+     "id": "cutback",
+     "name": "地上部の刈り取り",
+     "trigger": {
+      "type": "calendar",
+      "when": "12上"
+     },
+     "materials": [
+      "剪定ばさみ"
+     ],
+     "steps": [
+      "茎葉が黄色く枯れたのを確認する",
+      "地際から刈り取る",
+      "刈った茎葉は畑から持ち出して処分する（病害虫の越冬場所になる）"
+     ],
+     "caution": "枯れる前に刈ると養分が根に戻らない。完全に枯れてから。"
+    },
+    {
+     "id": "winter_compost",
+     "name": "冬の堆肥入れ",
+     "trigger": {
+      "type": "calendar",
+      "when": "12中"
+     },
+     "materials": [
+      "完熟堆肥"
+     ],
+     "steps": [
+      "株の上に完熟堆肥を5cmの厚さで覆う",
+      "防寒と翌年の養分を兼ねる"
+     ]
+    }
+   ],
+   "slotsNeeded": 2,
+   "rotation": {
+    "minYears": 0,
+    "maxYears": 0,
+    "source": "多年草。植え替えるときは別の場所に"
+   },
+   "perennialYears": 10,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 40
+   }
+  },
+  {
+   "id": "strawberry",
+   "name": "イチゴ",
+   "type": "D",
+   "typeLabel": "多年生（越冬）",
+   "family": "バラ科",
+   "unit": "個",
+   "harvestMode": "cumulative",
+   "winterSunNote": "春の実の甘さは冬〜春の日照で決まる。半日陰の畝は避ける。",
+   "start": {
+    "action": "定植",
+    "window": [
+     "10上",
+     "10下"
+    ],
+    "spacing": "株間30cm・条間30cm"
+   },
+   "harvestWindow": [
+    "4下",
+    "6上"
+   ],
+   "tasks": [
+    {
+     "id": "prep_bed",
+     "name": "土づくり・畝立て",
+     "trigger": {
+      "type": "offset",
+      "days": -14
+     },
+     "materials": [
+      "苦土石灰",
+      "完熟堆肥",
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "苦土石灰を1㎡あたり100gまいて耕す",
+      "1週間後に完熟堆肥2kg・化成肥料80gを入れる",
+      "幅60cm・高さ20cmの高畝を立てる（水はけ重視）"
+     ]
+    },
+    {
+     "id": "plant",
+     "name": "定植",
+     "trigger": {
+      "type": "offset",
+      "days": 0
+     },
+     "materials": [
+      "苗",
+      "じょうろ"
+     ],
+     "steps": [
+      "株間30cmで植え穴をあける",
+      "ランナー（親株とつながっていた茎）の跡を確認する",
+      "ランナー跡を畝の内側に向けて植える（実は反対側＝通路側につく）",
+      "クラウン（株の中心の王冠状の部分）が土に埋まらないよう浅く植える",
+      "たっぷり灌水する"
+     ],
+     "caution": "クラウンを埋めると腐って枯れる。逆に浅すぎて根が出ると乾く。表面ギリギリに。"
+    },
+    {
+     "id": "deadleaf",
+     "name": "枯葉取り",
+     "trigger": {
+      "type": "calendar",
+      "when": "12上",
+      "repeat": {
+       "everyDays": 30,
+       "untilDays": 120
+      }
+     },
+     "steps": [
+      "黄色くなった葉・枯れ葉を付け根から取る",
+      "株の中心に日が当たるようにする",
+      "病気の温床を減らす"
+     ],
+     "caution": "冬は生長が止まるが、枯葉を放置すると灰色かび病の原因になる。",
+     "routine": true
+    },
+    {
+     "id": "fert",
+     "name": "追肥（春の立ち上がり）",
+     "trigger": {
+      "type": "calendar",
+      "when": "2下"
+     },
+     "materials": [
+      "化成肥料(8-8-8)"
+     ],
+     "steps": [
+      "1株ひとつまみ（10g程度）を株元から離して施す",
+      "軽く中耕する"
+     ],
+     "caution": "肥料が多いと葉ばかり茂って実がつかない。控えめに。"
+    },
+    {
+     "id": "mulch",
+     "name": "マルチ張り・敷きわら",
+     "trigger": {
+      "type": "calendar",
+      "when": "3上"
+     },
+     "materials": [
+      "黒マルチまたは敷きわら"
+     ],
+     "steps": [
+      "株の周りを黒マルチか敷きわらで覆う",
+      "実が土に触れないようにする",
+      "泥はねによる病気と、実の汚れを防ぐ"
+     ],
+     "caution": "花が咲いてからでは作業しにくい。開花前に済ませる。"
+    },
+    {
+     "id": "pollinate",
+     "name": "人工授粉",
+     "trigger": {
+      "type": "calendar",
+      "when": "4上",
+      "repeat": {
+       "everyDays": 3,
+       "untilDays": 45
+      }
+     },
+     "materials": [
+      "柔らかい筆"
+     ],
+     "steps": [
+      "晴れた日の午前中に行う",
+      "花の中心を筆でやさしくなでる",
+      "すべての花に満遍なく",
+      "受粉が偏ると形のいびつな実になる"
+     ],
+     "caution": "露地でも虫が少ない時期は受粉不足になる。筆でなでるだけで形が揃う。",
+     "routine": true
+    },
+    {
+     "id": "harvest",
+     "name": "収穫",
+     "kind": "harvest",
+     "trigger": {
+      "type": "calendar",
+      "when": "4下",
+      "repeat": {
+       "everyDays": 2,
+       "untilDays": 45
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "収穫かご"
+     ],
+     "steps": [
+      "ヘタの際まで赤く色づいてから",
+      "朝の涼しいうちに採る",
+      "果柄をハサミで切る",
+      "採った数を記録する"
+     ],
+     "caution": "鳥とナメクジに狙われる。色づき始めたら防鳥ネットを。"
+    },
+    {
+     "id": "runner",
+     "name": "ランナー処理",
+     "trigger": {
+      "type": "calendar",
+      "when": "6上",
+      "repeat": {
+       "everyDays": 14,
+       "untilDays": 75
+      }
+     },
+     "materials": [
+      "ハサミ",
+      "育苗ポット"
+     ],
+     "steps": [
+      "収穫中に出たランナーは切り取る（株が消耗する）",
+      "収穫終了後は、来年用の苗を採るためランナーを伸ばす",
+      "親株から2番目・3番目の子株をポットで受ける",
+      "1番目の子株は病気を持ちやすいので使わない"
+     ],
+     "caution": "来年の苗はここで作る。買い直さずに済む。",
+     "routine": true
+    }
+   ],
+   "slotsNeeded": 1,
+   "rotation": {
+    "minYears": 2,
+    "maxYears": 2,
+    "source": "岡山県「野菜の年間栽培計画をたてよう！」"
+   },
+   "winterSunRequired": true,
+   "layout": "plant",
+   "spacingCm": {
+    "min": 30
+   },
+   "icon": "🍓"
+  }
+ ],
+ "region": {
+  "name": "岐阜（濃尾平野）",
+  "forecastPoint": {
+   "name": "各務原市",
+   "lat": 35.399,
+   "lon": 136.863
+  },
+  "firstFrost": {
+   "md": "11-24",
+   "period": "1991–2020",
+   "reference": false
+  },
+  "lastFrost": {
+   "md": "04-01",
+   "period": "1991–2019",
+   "reference": true
+  },
+  "source": "気象庁 岐阜地方気象台 平年値（霜・雪・結氷の初終日）",
+  "url": "https://www.data.jma.go.jp/stats/etrn/view/nml_sfc_season.php?prec_no=52&block_no=47632",
+  "note": "終霜の平年値は気象庁の参考値。気象台（岐阜市）の値で、畑の場所によって前後する。"
+ }
+}

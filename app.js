@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.6";
+const APP_VERSION = "5.6.1";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -2322,6 +2322,9 @@ function spotsListHtml(p){
       ⑥半端なすき間の数 ⑦隣・畝の端に接する数（多いほど良い） → 畝の順・左から
    3) 理由は、順位を決めた項目（2位との差が出た項目）と、1位の評価結果から作る
    ============================================================= */
+/* おすすめの計算方法の版。アプリの版とは別に、おすすめの結果が変わる変更（比べる順番・評価の項目・日照の判定など）をしたときだけ上げる。
+   v1：v5.5 の8項目（連作の赤→赤の重なり→黄色の数→日照→黄色の連作の重なり→半端なすき間→接する数→畝の順・左から） */
+const REC_VERSION = 1;
 let END_CACHE = null;                       // おすすめの計算中だけ、作付けの終わりの見込みを使い回す
 function withEndCache(fn){ const was = END_CACHE; END_CACHE = END_CACHE || new Map(); try{ return fn(); } finally { END_CACHE = was; } }
 /* 置いたときの栽培スペース（半端なすき間・隣接の判定用）。株は中心±株間の半分（5cm刻みで切り上げ） */
@@ -2443,19 +2446,21 @@ function ppRec(){
 }
 function ppAtRec(rec){ return rec && (pp.kind==="plant" ? rec.sp.center===pp.x : rec.sp.from===pp.from); }
 function ppGoRec(){ const r = ppRec(); if(!r) return; if(pp.kind==="plant") pp.x = r.sp.center; else pp.from = r.sp.from; pp.note = ""; }
-/* おすすめと実際に置いた位置の記録（あとで「どんなときにおすすめを変えたか」を見るため）。settings に最大300件 */
+/* おすすめと実際に置いた位置の記録（あとで「どんなときにおすすめを変えたか」を見るため）。settings に最大300件
+   意思決定の記録：「そのときアプリが何を勧め、人が何を選んだか」。実際＝登録した瞬間に選んだ位置。
+   あとで「位置を直す」「この位置を消す」をしても、この記録は書き換えない（植え替えを分析したくなったら別の記録にする） */
 function recordRecChoice(sp){
   const rec = pp.global && pp.global.sp.kind===pp.kind ? pp.global : ppRec();
   if(!rec) return;
   const pos = s => s.kind==="plant" ? s.center : s.from;
-  const e = { d:fmtD(today()), c:pp.cropId, k:sp.kind, rb:rec.bedId, rp:pos(rec.sp), b:pp.bed, p:pos(sp), same: rec.bedId===pp.bed && pos(rec.sp)===pos(sp), conf:rec.conf, from:pp.global ? "適期" : pp.anchor ? "隣" : pp.x0!=null ? "タップ" : "株を置く" };
+  const e = { d:fmtD(today()), c:pp.cropId, k:sp.kind, rb:rec.bedId, rp:pos(rec.sp), b:pp.bed, p:pos(sp), same: rec.bedId===pp.bed && pos(rec.sp)===pos(sp), conf:rec.conf, rv:REC_VERSION, av:APP_VERSION, from:pp.global ? "適期" : pp.anchor ? "隣" : pp.x0!=null ? "タップ" : "株を置く" };
   const log = (state.settings.recLog||[]).concat([e]).slice(-300);
   putSettings({ recLog:log });
 }
 function recLogHtml(){
   const log = state.settings.recLog || []; if(!log.length) return `<div class="empty" style="padding:4px 0">まだ記録はありません。</div>`;
-  const same = log.filter(x=>x.same).length, moved = log.filter(x=>!x.same);
-  return `<div class="desc">おすすめどおり <b>${same}件</b>／位置を変えた <b>${moved.length}件</b>（全${log.length}件）</div>`
+  const cur = log.filter(x=>(x.rv||1)===REC_VERSION), same = cur.filter(x=>x.same).length, moved = cur.filter(x=>!x.same);
+  return `<div class="desc">今のおすすめ（計算方法 v${REC_VERSION}）で：おすすめどおり <b>${same}件</b>／位置を変えた <b>${moved.length}件</b>（全${cur.length}件${log.length>cur.length?`・ほかの版 ${log.length-cur.length}件`:""}）</div>`
     + (moved.length ? `<div class="reclog">${moved.slice(-5).reverse().map(x=>{ const c = cropById(x.c);
         return `<div>${esc(slash(parseD(x.d)))} ${esc(c?c.name:x.c)}：おすすめ ${esc(x.rb)} ${x.rp}cm → 実際 ${esc(x.b)} ${x.p}cm${x.conf==="low"?"（ほぼ同条件の候補あり）":""}</div>`; }).join("")}</div>` : "");
 }

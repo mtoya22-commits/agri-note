@@ -1,6 +1,6 @@
 /* 畑ノート：オフラインでも開けるようにアプリ本体をキャッシュする
    アプリを更新したら CACHE の番号を1つ上げる */
-const CACHE = "hatake-note-v5.2.1";
+const CACHE = "hatake-note-v5.3";
 const ASSETS = ["./", "./index.html", "./app.js", "./crops.json", "./manifest.webmanifest",
                 "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 

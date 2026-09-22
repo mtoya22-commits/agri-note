@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.4";
+const APP_VERSION = "5.5";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -609,6 +609,14 @@ function taskSchedule(p, crop, task){
 }
 /* 作付けが区画を使う期間：準備作業の始まり〜終了（予定） */
 function expectedEnd(p){
+  if(END_CACHE){
+    const k = p.id==="__cand" ? `c|${p.cropId}|${p.date}` : `p|${p.id}|${p.status}|${p.date}|${p.endDate||""}`;
+    if(END_CACHE.has(k)) return END_CACHE.get(k);
+    const v = expectedEndRaw(p); END_CACHE.set(k, v); return v;
+  }
+  return expectedEndRaw(p);
+}
+function expectedEndRaw(p){
   if(p.status==="done") return p.endDate ? parseD(p.endDate) : lastLogDate(p) || parseD(p.date);
   const crop = cropById(p.cropId), base = clockBase(p);
   if(crop.perennialYears) return addD(base, Math.round(crop.perennialYears*YEAR));
@@ -1265,7 +1273,7 @@ function renderField(){
         return `<div class="win">
         <span class="winname">${esc(c.name)}</span><span class="ptype">${esc(c.start.action)}</span>
         <span class="winwhen">${when}</span>
-        <button class="btn" data-act="auto-place" data-c="${c.id}">${st.state==="late"?"今から始める":"空き区画に植える"}</button></div>`;}).join("");
+        <button class="btn" data-act="rec-place" data-c="${c.id}">${st.state==="late"?"今から始める":"おすすめの場所に植える"}</button></div>`;}).join("");
   h += `</div></div>`;
   h += `<div class="sect"><div class="sect-head"><h2>作る作物</h2><span class="count">${my.length} / ${DATA.crops.length}</span></div>
     <div class="card"><div class="chips">${DATA.crops.map(c=>{ const on = my.includes(c.id);
@@ -1840,6 +1848,8 @@ function placeInitial(){
     else pp.from = Math.max(0, Math.min(L - pp.len, snapCm(pp.x0 - pp.len/2)));
     return;
   }
+  const r = ppRec();                                            // 位置の指定がない → この畝のおすすめの位置
+  if(r){ setAt(pp.kind==="plant" ? r.sp.center : r.sp.from); return; }
   const tight = () => pp.kind==="plant" && spacingIssues(ppSpot(), pp.bed, pp.cropId, date).length > 0;
   let fb = null;                                               // 左から、重ならず株間も足りる所 → なければ重ならない所
   const sc0 = spacingOf(c), v0 = pp.kind==="plant" ? (sc0 ? roundUp(sc0.min/2) : PLANT_HALF) : 0;   // 株は畝の端から株間の半分あける
@@ -1938,6 +1948,10 @@ function renderPlaceSheet(){
         <div class="hint">株間の目安がないため、長さは決めていません（仮の長さ）。実際に合わせてください。</div>`
         : `<div class="hint">長さ ${pp.len}cm（${pp.n}株÷${pp.rows}条×株間${sc.min}cm）</div>`}` : ""}
     ${pp.kind==="band" ? `<div class="sizerow"><span class="lbl">長さ</span><button class="btn" data-act="pp-adj" data-w="len" data-v="-${LEN_STEP}" aria-label="${LEN_STEP}cm短く">−</button><b>${pp.len}cm</b><button class="btn" data-act="pp-adj" data-w="len" data-v="${LEN_STEP}" aria-label="${LEN_STEP}cm長く">＋</button></div>` : ""}
+    ${(()=>{ const rec = ppRec(); if(!rec) return "";
+      const here = ppAtRec(rec);
+      return (pp.global && here ? `<div class="hint" style="margin-top:8px">全部の畝の中から選んだ場所です。</div>` : "")
+        + recHtml(rec, here) + (here ? "" : `<div class="btns" style="margin-top:-4px;margin-bottom:8px"><button class="btn small" data-act="pp-rec">この畝のおすすめの位置へ</button></div>`); })()}
     ${pp.note ? `<div class="warn note"><span class="wt">位置の確認</span>${pp.note}</div>` : ""}
     ${bs.length ? `<div class="label-s">どの作付けにするか</div><div class="startchoice" role="radiogroup">
       ${bs.map(b=>`<label><input type="radio" name="pp-add" value="${b.id}"${pp.add===b.id?" checked":""}> ${esc(c.name)}（${jp(parseD(startDateOf(b)))}${b.variety?`・${esc(b.variety)}`:""}・${b.count}株）に${addWhat()}追加</label>`).join("")}
@@ -2295,6 +2309,142 @@ function spotsListHtml(p){
   return `<div class="label-s">位置（植えた${planted}株・生育中${alive}株）</div><div class="splist">${rows}</div>`;
 }
 
+/* =============================================================
+   段階3：畝の中のおすすめの位置
+   1) 候補を作る（株は中心、まとまり・帯は左端を5cm刻みで）→ 物理的に置ける候補だけ残す
+      （同じ場所の判定は一部終了のきまりのまま：株・帯は終了日から空き、まとまりは全部終わるまで使用中）
+   2) 候補ごとに評価し、次の順に上から比べる（同じなら次へ）
+      ①連作の赤があるか ②赤の重なり率 ③黄色の注意の数 ④日照の相性 ⑤黄色の連作の重なり率
+      ⑥半端なすき間の数 ⑦隣・畝の端に接する数（多いほど良い） → 畝の順・左から
+   3) 理由は、順位を決めた項目（2位との差が出た項目）と、1位の評価結果から作る
+   ============================================================= */
+let END_CACHE = null;                       // おすすめの計算中だけ、作付けの終わりの見込みを使い回す
+function withEndCache(fn){ const was = END_CACHE; END_CACHE = END_CACHE || new Map(); try{ return fn(); } finally { END_CACHE = was; } }
+/* 置いたときの栽培スペース（半端なすき間・隣接の判定用）。株は中心±株間の半分（5cm刻みで切り上げ） */
+function spaceOf(sp, crop){
+  if(sp.kind!=="plant") return { from:sp.from, to:sp.to };
+  const s = sp.space || (spacingOf(crop)||{}).min, half = s ? roundUp(s/2) : PLANT_HALF;
+  return { from:sp.center - half, to:sp.center + half };
+}
+function minUsableGap(){
+  const my = ((state.settings.myCrops||[]).length ? state.settings.myCrops : DATA.crops.map(c=>c.id)).map(cropById).filter(c=>c && layoutOf(c)==="plant");
+  const m = my.map(c=>(spacingOf(c)||{}).min).filter(Boolean);
+  return m.length ? Math.min(...m) : 25;
+}
+/* 連作の重なり：その候補の連作範囲のうち、赤・黄色の相手と重なる割合 */
+function rotationOverlaps(mine, bedId, cropId, dateStr){
+  const crop = cropById(cropId), cand = candPlanting([mine], bedId, cropId, dateStr);
+  const S = parseD(dateStr), E = expectedEnd(cand), R = rotAlong(mine, crop), len = Math.max(1, R.to - R.from);
+  let red = 0, amber = 0;
+  state.plantings.forEach(p=>{
+    const b = bedOf(p); if(!b || b.id!==bedId) return;
+    const c2 = cropById(p.cropId); if(!c2 || c2.family!==crop.family) return;
+    const e = expectedEnd(p), S2 = clockBase(p);
+    spotsOf(p).forEach(sp=>{
+      if(!spotsRotHit(mine, crop, sp, c2, bedId)) return;
+      const E2 = spotEnd(p, sp, e); let gap, rule;
+      if(E2 < S){ gap = diffD(S, E2); rule = rotationFor(crop); }
+      else if(E < S2){ gap = diffD(S2, E); rule = rotationFor(c2); }
+      else return;
+      const y = gap / YEAR, level = y < rule.minYears ? 2 : y < rule.maxYears ? 1 : 0; if(!level) return;
+      const o = rotAlong(sp, c2), ov = Math.max(0, Math.min(R.to, o.to) - Math.max(R.from, o.from));
+      if(level===2) red += ov; else amber += ov;
+    });
+  });
+  return { red: Math.min(1, red/len), amber: Math.min(1, amber/len) };
+}
+/* 候補の位置（kind：plant／group／band、len：まとまり・帯の長さ） */
+function candidateSpots(bedId, cropId, kind, len, extra){
+  const L = bedDims(bedId).lengthCm, c = cropById(cropId), out = [];
+  if(kind==="plant"){
+    const sc = spacingOf(c), v0 = sc ? roundUp(sc.min/2) : PLANT_HALF;
+    for(let x=v0; x<=L-v0; x+=GRID) out.push(plantSpot(x, cropId));
+  }else{
+    for(let f=0; f+len<=L; f+=GRID){ const sp = { kind, from:f, to:f+len, precision:"exact" }; if(kind==="group") Object.assign(sp, { n:(extra||{}).n||1, rows:(extra||{}).rows||1 }); out.push(sp); }
+  }
+  return out;
+}
+function evalCandidate(sp, bedId, cropId, dateStr, minGap){
+  const ws = checkAt([sp], bedId, cropId, dateStr);
+  if(blocking(ws)) return null;
+  const crop = cropById(cropId), bed = bedById(bedId), L = bedDims(bedId).lengthCm;
+  const rot = rotationOverlaps(sp, bedId, cropId, dateStr);
+  const hasRed = ws.some(w=>w.title==="連作リスク高") ? 1 : 0;
+  const ambers = ws.filter(w=>w.level==="amber");
+  const cand = interval(candPlanting([sp], bedId, cropId, dateStr));
+  const winter = bed.winterSun==="half" && winterDays(cand) >= WINTER.minDays;
+  const sun = !winter ? 0 : crop.shadeOk ? -1 : crop.winterSunRequired ? 0 : 1;   // 必須は黄色の注意で数える
+  /* すき間：同じ時期に畝にいる作物の栽培スペースとの間 */
+  const me = spaceOf(sp, crop); let lft = 0, rgt = L;
+  state.plantings.forEach(p=>{
+    const b = bedOf(p); if(!b || b.id!==bedId) return;
+    const c2 = cropById(p.cropId), e = expectedEnd(p), s0 = bookingStart(p);
+    spotsOf(p).forEach(o=>{
+      if(!overlaps(cand, {from:s0, to:spotEnd(p, o, e)})) return;
+      if(!rangeHit(spotCross(sp,bedId), spotCross(o,bedId))) return;
+      const r = spaceOf(o, c2);
+      if(r.to <= me.from + 0.001) lft = Math.max(lft, r.to); else if(r.from >= me.to - 0.001) rgt = Math.min(rgt, r.from);
+      else if(r.to > me.from && r.to < me.to) lft = Math.max(lft, me.from); else if(r.from < me.to && r.from > me.from) rgt = Math.min(rgt, me.to);
+    });
+  });
+  const gl = Math.max(0, me.from - lft), gr = Math.max(0, rgt - me.to);
+  const orphan = [gl, gr].filter(g=>g > 0 && g < minGap).length;
+  const adj = [gl, gr].filter(g=>g===0).length;
+  const pos = sp.kind==="plant" ? sp.center : sp.from;
+  return { sp, bedId, ws, hasRed, redOv:rot.red, amberN:ambers.length, ambers, sun, amberOv:rot.amber, orphan, adj, gaps:[gl, gr],
+           key:[hasRed, Math.round(rot.red*100), ambers.length, sun, Math.round(rot.amber*100), orphan, -adj, BEDS.findIndex(b=>b.id===bedId), pos] };
+}
+const cmpKey = (a, b) => { for(let i=0;i<a.key.length;i++){ if(a.key[i]!==b.key[i]) return a.key[i] - b.key[i]; } return 0; };
+const TIER_REASON = ["連作の赤を避けられる場所です", "連作の重なりがいちばん小さい場所です", "注意がいちばん少ない場所です", null, "連作（やや短い）の重なりが小さい場所です", "半端な空きを残さない場所です", "隣の作物や畝の端に接して、詰めて置ける場所です", "条件が同じ場所のうち、畝の順（a→b→c）で先の畝です", "条件が同じ場所のうち、いちばん左です"];
+function recommendAt(bedIds, cropId, dateStr, kind, len, extra){
+  return withEndCache(()=>{
+    const mg = minUsableGap(), all = [];
+    bedIds.forEach(b=>candidateSpots(b, cropId, kind, len, extra).forEach(sp=>{ const r = evalCandidate(sp, b, cropId, dateStr, mg); if(r) all.push(r); }));
+    if(!all.length) return null;
+    all.sort(cmpKey);
+    /* 順位を決めた項目：上の項目まで同じ候補のうち、その項目で1位より悪い候補があった項目（＝実際にふるい落とした項目） */
+    const best = all[0], effective = [];
+    for(let i=0;i<7;i++){ if(all.some(x=>x.key.slice(0,i).every((v,j)=>v===best.key[j]) && x.key[i]!==best.key[i])) effective.push(i); }
+    const tier = effective.length ? effective[0] : (all.some(x=>x.key[7]!==best.key[7]) ? 7 : all.length>1 ? 8 : -1);
+    return Object.assign(best, { reason:recReason(best, effective.length ? effective : [tier], cropId), tier, effective, count:all.length });
+  });
+}
+function recReason(r, tiers, cropId){
+  const c = cropById(cropId), bed = bedById(r.bedId), sc = spacingOf(c);
+  const where = `${bed.name}・${r.sp.kind==="plant" ? `左から${r.sp.center}cm付近` : `左から${r.sp.from}〜${r.sp.to}cm`}`;
+  const text = t => t===3 ? (r.sun < 0 ? `${c.name}は半日陰でも育つので、日当たりの良い畝を他の作物に残せます` : "冬も日当たりの良い畝です")
+                  : t===1 ? `${TIER_REASON[1]}（重なり${Math.round(r.redOv*100)}%）` : t>=0 ? TIER_REASON[t] : "";
+  const main = tiers.filter(t=>t>=0).slice(0,2).map(text).join("。");
+  const facts = [];
+  facts.push(r.hasRed ? `連作リスク高（重なり${Math.round(r.redOv*100)}%）` : r.amberOv > 0 ? "連作は推奨間隔にやや短い" : "連作の問題なし");
+  if(r.sp.kind==="plant") facts.push(sc ? (r.ambers.some(w=>w.title==="株間が狭い") ? "株間がやや狭い" : `必要な株間（${sc.min}cm）を確保`) : "株間の目安なし");
+  r.ambers.filter(w=>!/連作|株間/.test(w.title)).forEach(w=>facts.push(w.title));
+  if(r.sun < 0) facts.push("半日陰向きの畝"); else if(r.sun > 0) facts.push("冬は半日陰の畝");
+  facts.push(r.orphan ? "半端な空きが残る" : "半端な空きなし");
+  if(r.adj) facts.push(r.adj===2 ? "両側に接する" : "片側に接する");
+  return { where, main, facts };
+}
+const recHtml = (rec, here) => rec ? `<div class="recwhy"><b>${here ? "おすすめの位置です" : `おすすめ：${esc(rec.reason.where)}`}</b>${rec.reason.main ? esc(rec.reason.main)+"。" : ""}<span class="recfacts">${rec.reason.facts.map(esc).join("・")}</span></div>` : "";
+/* 置く画面：この畝のおすすめ（いまの植え方・長さで） */
+function ppRec(){
+  const key = [pp.bed, pp.cropId, pp.kind, pp.len, pp.n, pp.rows, pp.date].join("|");
+  if(pp.recKey!==key){ pp.recKey = key; pp.rec = recommendAt([pp.bed], pp.cropId, pp.date, pp.kind, pp.len, {n:pp.n, rows:pp.rows}); }
+  return pp.rec;
+}
+function ppAtRec(rec){ return rec && (pp.kind==="plant" ? rec.sp.center===pp.x : rec.sp.from===pp.from); }
+function ppGoRec(){ const r = ppRec(); if(!r) return; if(pp.kind==="plant") pp.x = r.sp.center; else pp.from = r.sp.from; pp.note = ""; }
+/* 作付けの適期の一覧から：全部の畝の中でおすすめの場所に */
+function openRecommended(cropId){
+  const c = cropById(cropId), date = defaultDate(c), kind = kindsFor(c)[0], len = BAND_DEFAULT;
+  const rec = recommendAt(BEDS.map(b=>b.id), cropId, date, kind, len, {});
+  if(!rec){ alert("その時期に空いている場所がありません。どれかの作付けを終了するか、日付をずらしてください。"); return; }
+  pp = { bed:rec.bedId, x0:null, anchor:null, cropId, kind, date, add:null, variety:"", startDone:parseD(date) < today(),
+         x:rec.sp.center, from:rec.sp.from||0, len, n:GROUP_DEFAULT_N, rows:c.rows||1, count:"", note:"", global:rec };
+  const bs = batchesFor(pp.bed, cropId, pp.date, "");
+  pp.add = bs.length ? bs[0].id : null;
+  renderPlaceSheet(); $("#sheet").scrollTop = 0;
+}
+
 /* ---------- 作付けの詳細 ---------- */
 function openPlanting(pid){
   const p = state.plantings.find(x=>x.id===pid); if(!p) return;
@@ -2439,6 +2589,8 @@ async function handle(act, el, ev){
     case "pp-adj": ppSync(); ppAdjust(d.w, Number(d.v)); renderPlaceSheet(); break;
     case "pp-kind": ppSync(); setKind(d.k); renderPlaceSheet(); break;
     case "pp-save": savePlace(); break;
+    case "rec-place": openRecommended(d.c); break;
+    case "pp-rec": ppSync(); ppGoRec(); renderPlaceSheet(); break;
     case "seq-open": openSeq(d.b); break;
     case "sq-add": if(sq){ sq.items.push(d.c); renderSeqSheet(); } break;
     case "sq-undo": if(sq){ sq.items.pop(); renderSeqSheet(); } break;

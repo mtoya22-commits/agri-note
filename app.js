@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.5";
+const APP_VERSION = "5.6";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -379,7 +379,7 @@ function rowFor(table, o, deleted){
       tmin:o.tmin, cloud:o.cloud, wind:o.wind, risk:o.risk, observed:o.observed||"" }, meta);
   }
   const s = state.settings;
-  return Object.assign({ id:"settings", value:JSON.stringify({seasonOffset:s.seasonOffset, cropOffset:s.cropOffset, myCrops:s.myCrops, myCropsTouched:s.myCropsTouched, beds:s.beds||{}}) }, meta);
+  return Object.assign({ id:"settings", value:JSON.stringify({seasonOffset:s.seasonOffset, cropOffset:s.cropOffset, myCrops:s.myCrops, myCropsTouched:s.myCropsTouched, beds:s.beds||{}, recLog:s.recLog||[]}) }, meta);
 }
 function fromRow(table, r){
   const num = v => v===""||v==null ? 0 : Number(v);
@@ -1456,6 +1456,9 @@ function renderSettings(){
   </div></div>`;
 
   const th = themeGet();
+  h += `<div class="sect"><div class="sect-head"><h2>おすすめと実際</h2></div><div class="card"><div class="setrow">
+      <div class="desc">置くときに出たおすすめの位置と、実際に置いた位置の記録です。おすすめを変えたときの傾向を見て、評価の項目を見直すのに使います。</div>
+      ${recLogHtml()}</div></div></div>`;
   h += `<div class="sect"><div class="sect-head"><h2>畝の寸法</h2></div><div class="card">
     <div class="setrow"><div class="desc">だいたいの長さと幅（cm）。区画や、この先の「畝の中の位置」の計算に使います。あとから直せます。</div>
       <div class="bedgrid">${BEDS.map(b=>{ const d = bedDims(b.id);
@@ -1989,6 +1992,7 @@ function savePlace(){
   if(warn.length && !confirm(warn.map(w=>w.title).join("・")+"があります。このまま置きますか？")) return;
   if(state.sample){ state.plantings = []; state.logs = []; state.sample = false; }
   const n = sp.kind==="plant" ? 1 : sp.kind==="group" ? sp.n : Math.max(0, parseInt(pp.count,10) || 0);
+  recordRecChoice(sp);
   if(batch){
     batch.spots = batch.spots.concat([sp]).sort((a,b)=>(a.center??a.from)-(b.center??b.from));
     batch.count = (batch.count||0) + n;
@@ -2406,7 +2410,13 @@ function recommendAt(bedIds, cropId, dateStr, kind, len, extra){
     const best = all[0], effective = [];
     for(let i=0;i<7;i++){ if(all.some(x=>x.key.slice(0,i).every((v,j)=>v===best.key[j]) && x.key[i]!==best.key[i])) effective.push(i); }
     const tier = effective.length ? effective[0] : (all.some(x=>x.key[7]!==best.key[7]) ? 7 : all.length>1 ? 8 : -1);
-    return Object.assign(best, { reason:recReason(best, effective.length ? effective : [tier], cropId), tier, effective, count:all.length });
+    /* 確信度：1位と、離れた別の場所（別の畝か50cm以上離れた所）の最良候補を比べ、最初に差がつく項目で決める
+       赤・赤の重なり・注意の数で差 → high／日照・黄色の連作 → mid／すき間・接する数・並び順だけ → low（ほぼ同じ条件の場所がある） */
+    const far = all.find(x=>x.bedId!==best.bedId || Math.abs(x.key[8] - best.key[8]) >= 50) || null;
+    let diff = 99; if(far) for(let i=0;i<7;i++){ if(far.key[i]!==best.key[i]){ diff = i; break; } }
+    const conf = !far ? "only" : diff<=2 ? "high" : diff<=4 ? "mid" : "low";
+    const alt = far && conf==="low" ? `${bedById(far.bedId).name}・${far.sp.kind==="plant" ? `左から${far.sp.center}cm付近` : `左から${far.sp.from}〜${far.sp.to}cm`}` : null;
+    return Object.assign(best, { reason:recReason(best, effective.length ? effective : [tier], cropId), tier, effective, count:all.length, conf, alt });
   });
 }
 function recReason(r, tiers, cropId){
@@ -2424,7 +2434,7 @@ function recReason(r, tiers, cropId){
   if(r.adj) facts.push(r.adj===2 ? "両側に接する" : "片側に接する");
   return { where, main, facts };
 }
-const recHtml = (rec, here) => rec ? `<div class="recwhy"><b>${here ? "おすすめの位置です" : `おすすめ：${esc(rec.reason.where)}`}</b>${rec.reason.main ? esc(rec.reason.main)+"。" : ""}<span class="recfacts">${rec.reason.facts.map(esc).join("・")}</span></div>` : "";
+const recHtml = (rec, here) => rec ? `<div class="recwhy"><b>${here ? "おすすめの位置です" : `おすすめ：${esc(rec.reason.where)}`}</b>${rec.reason.main ? esc(rec.reason.main)+"。" : ""}<span class="recfacts">${rec.reason.facts.map(esc).join("・")}</span>${rec.alt ? `<span class="recalt">ほかにもほぼ同じ条件の場所があります（${esc(rec.alt)}など）。</span>` : ""}</div>` : "";
 /* 置く画面：この畝のおすすめ（いまの植え方・長さで） */
 function ppRec(){
   const key = [pp.bed, pp.cropId, pp.kind, pp.len, pp.n, pp.rows, pp.date].join("|");
@@ -2433,6 +2443,22 @@ function ppRec(){
 }
 function ppAtRec(rec){ return rec && (pp.kind==="plant" ? rec.sp.center===pp.x : rec.sp.from===pp.from); }
 function ppGoRec(){ const r = ppRec(); if(!r) return; if(pp.kind==="plant") pp.x = r.sp.center; else pp.from = r.sp.from; pp.note = ""; }
+/* おすすめと実際に置いた位置の記録（あとで「どんなときにおすすめを変えたか」を見るため）。settings に最大300件 */
+function recordRecChoice(sp){
+  const rec = pp.global && pp.global.sp.kind===pp.kind ? pp.global : ppRec();
+  if(!rec) return;
+  const pos = s => s.kind==="plant" ? s.center : s.from;
+  const e = { d:fmtD(today()), c:pp.cropId, k:sp.kind, rb:rec.bedId, rp:pos(rec.sp), b:pp.bed, p:pos(sp), same: rec.bedId===pp.bed && pos(rec.sp)===pos(sp), conf:rec.conf, from:pp.global ? "適期" : pp.anchor ? "隣" : pp.x0!=null ? "タップ" : "株を置く" };
+  const log = (state.settings.recLog||[]).concat([e]).slice(-300);
+  putSettings({ recLog:log });
+}
+function recLogHtml(){
+  const log = state.settings.recLog || []; if(!log.length) return `<div class="empty" style="padding:4px 0">まだ記録はありません。</div>`;
+  const same = log.filter(x=>x.same).length, moved = log.filter(x=>!x.same);
+  return `<div class="desc">おすすめどおり <b>${same}件</b>／位置を変えた <b>${moved.length}件</b>（全${log.length}件）</div>`
+    + (moved.length ? `<div class="reclog">${moved.slice(-5).reverse().map(x=>{ const c = cropById(x.c);
+        return `<div>${esc(slash(parseD(x.d)))} ${esc(c?c.name:x.c)}：おすすめ ${esc(x.rb)} ${x.rp}cm → 実際 ${esc(x.b)} ${x.p}cm${x.conf==="low"?"（ほぼ同条件の候補あり）":""}</div>`; }).join("")}</div>` : "");
+}
 /* 作付けの適期の一覧から：全部の畝の中でおすすめの場所に */
 function openRecommended(cropId){
   const c = cropById(cropId), date = defaultDate(c), kind = kindsFor(c)[0], len = BAND_DEFAULT;

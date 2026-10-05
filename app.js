@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.6.1";
+const APP_VERSION = "5.7";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -63,6 +63,39 @@ function applyTheme(t){
   });
 }
 function setTheme(t){ themeMem = t; lsSet(THEME_KEY, t); applyTheme(t); }
+
+/* アイコンのバッジ（端末ごと・同期しない）
+   iPhoneのWebアプリは閉じている間に動けないので、バッジが変わるのはアプリを開いたときだけ。
+   そのぶん「今日」ではなく「数日以内のやること」を数えて、作業が近づいたら赤丸が残っている状態にする。
+   ホーム画面に追加したアプリで、通知の許可が要る（iOS 16.4以降） */
+const BADGE_KEY = "hatake-badge";
+const BADGE_DAYS = { today:0, "3":3, "7":7 };
+let badgeMem = null;
+function badgeMode(){ const v = badgeMem || lsGet(BADGE_KEY); return v in BADGE_DAYS ? v : v==="off" ? "off" : "off"; }
+const badgeOn = () => badgeMode()!=="off";
+const badgeSupported = () => typeof navigator!=="undefined" && "setAppBadge" in navigator;
+/* バッジの数：見回り・開始待ち・遅れを含む「◯日以内にやること」。収穫期（ずっと出ているもの）は数えない */
+function badgeCount(days){
+  if(!state) return 0;
+  const lim = addD(today(), days==null ? (BADGE_DAYS[badgeMode()] ?? 3) : days);
+  return computeTasks().filter(x=>x.kind!=="season" && x.due <= lim).length;
+}
+async function updateBadge(){
+  if(!badgeSupported()) return;
+  try{
+    if(!badgeOn() || PREVIEW){ await navigator.clearAppBadge(); return; }
+    const n = badgeCount();
+    if(n > 0) await navigator.setAppBadge(n); else await navigator.clearAppBadge();
+  }catch(e){}
+}
+async function setBadgeMode(v){
+  if(v!=="off" && typeof Notification!=="undefined" && Notification.permission==="default"){
+    try{ await Notification.requestPermission(); }catch(e){}
+  }
+  badgeMem = v; lsSet(BADGE_KEY, v);
+  await updateBadge(); renderSettings();
+  if(v!=="off" && typeof Notification!=="undefined" && Notification.permission==="denied") toast("iPhoneの「設定 → 畑ノート → 通知」を許可すると、バッジが出ます");
+}
 
 /* =============================================================
    畝と区画
@@ -519,7 +552,7 @@ window.addEventListener("online", ()=>sync(true));
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState!=="visible" || !state) return;
   if(Date.now() - state.sync.lastPull > 60000) sync(true); else scheduleFlush(300);
-  refreshFrost();
+  refreshFrost(); updateBadge();
 });
 setInterval(()=>{ if(state && state.sync.outbox.length) sync(false); }, 60000);
 
@@ -1082,7 +1115,7 @@ function groupedLogs(logs){
 /* =============================================================
    描画
    ============================================================= */
-function renderAll(){ if(!state) return; renderWeek(); renderField(); renderLog(); renderSettings(); renderSyncDot(); }
+function renderAll(){ if(!state) return; renderWeek(); renderField(); renderLog(); renderSettings(); renderSyncDot(); updateBadge(); }
 
 function whenLabel(due, lateOk){
   const n = diffD(due, today());
@@ -1455,7 +1488,13 @@ function renderSettings(){
       <div class="btns"><button class="btn" data-act="sync-restore">スプレッドシートから作り直す</button></div></div>`:""}`}
   </div></div>`;
 
-  const th = themeGet();
+  const th = themeGet(), bm = badgeMode();
+  h += `<div class="sect"><div class="sect-head"><h2>アイコンのバッジ</h2></div><div class="card"><div class="setrow">
+    ${badgeSupported() ? `<div class="desc">ホーム画面のアイコンに、やることの件数を赤丸で出します。<b>数が変わるのはアプリを開いたときだけ</b>です（iPhoneは閉じている間にWebアプリを動かせないため）。そのぶん数日先のぶんまで数えて、作業が近づいたら赤丸が残るようにしています。</div>
+      <div class="themechips">${[["off","出さない"],["today","今日のぶん"],["3","3日以内"],["7","1週間以内"]].map(([k,l])=>`<button class="chip${bm===k?" sel":""}" data-act="badge" data-v="${k}" aria-pressed="${bm===k}">${l}</button>`).join("")}</div>
+      ${badgeOn() ? `<div class="desc" style="margin-top:8px">いまの数：<b>${badgeCount()}件</b>${typeof Notification!=="undefined" && Notification.permission==="denied" ? "／iPhoneの「設定 → 畑ノート → 通知」が許可になっていないため、赤丸は出ません" : ""}</div>` : ""}`
+    : `<div class="desc">この端末（またはブラウザで開いた状態）では使えません。ホーム画面に追加したアプリとして開くと使えます（iOS 16.4以降）。</div>`}
+  </div></div></div>`;
   h += `<div class="sect"><div class="sect-head"><h2>おすすめと実際</h2></div><div class="card"><div class="setrow">
       <div class="desc">置くときに出たおすすめの位置と、実際に置いた位置の記録です。おすすめを変えたときの傾向を見て、評価の項目を見直すのに使います。</div>
       ${recLogHtml()}</div></div></div>`;
@@ -2637,6 +2676,7 @@ async function handle(act, el, ev){
     case "undo": if(toast.undo){ toast.undo(); toast.undo = null; $("#toast").className = ""; } break;
     case "go-settings": selectTab("tab-set"); break;
     case "theme": setTheme(d.t); renderSettings(); break;
+    case "badge": setBadgeMode(d.v); break;
     case "dd": {
       const box = el.closest(".donedate"), inp = box && box.querySelector("input[type=date]");
       if(inp){ inp.value = d.v; box.querySelectorAll("[data-act=dd]").forEach(b=>b.classList.toggle("sel", b===el)); }

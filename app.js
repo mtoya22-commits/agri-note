@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.7";
+const APP_VERSION = "5.8";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -310,6 +310,13 @@ function load(){
   state.sync = Object.assign(base.sync, state.sync||{});
   state.frost = state.frost || []; state.asked = state.asked || {};
   if(!Array.isArray(state.settings.myCrops) || !state.settings.myCropsTouched) state.settings.myCrops = DATA.crops.map(c=>c.id);
+  else {
+    /* 作物データに新しく増えた野菜は「使う」に入れる。自分で外した野菜（既に知っている野菜）は外したまま */
+    const known = Array.isArray(state.settings.myCropsKnown) ? state.settings.myCropsKnown : state.settings.myCrops;
+    const added = DATA.crops.map(c=>c.id).filter(id=>known.indexOf(id)<0 && state.settings.myCrops.indexOf(id)<0);
+    if(added.length) state.settings.myCrops = state.settings.myCrops.concat(added);
+  }
+  state.settings.myCropsKnown = DATA.crops.map(c=>c.id);
   state.plantings.forEach(p=>{ if(!p.bedId) p.bedId = slotBed((p.slots||[])[0]); if(!Array.isArray(p.slots)) p.slots = []; });
 }
 function save(){ lsSet(STORE_KEY, JSON.stringify(state)); }
@@ -412,7 +419,7 @@ function rowFor(table, o, deleted){
       tmin:o.tmin, cloud:o.cloud, wind:o.wind, risk:o.risk, observed:o.observed||"" }, meta);
   }
   const s = state.settings;
-  return Object.assign({ id:"settings", value:JSON.stringify({seasonOffset:s.seasonOffset, cropOffset:s.cropOffset, myCrops:s.myCrops, myCropsTouched:s.myCropsTouched, beds:s.beds||{}, recLog:s.recLog||[]}) }, meta);
+  return Object.assign({ id:"settings", value:JSON.stringify({seasonOffset:s.seasonOffset, cropOffset:s.cropOffset, myCrops:s.myCrops, myCropsTouched:s.myCropsTouched, myCropsKnown:s.myCropsKnown||[], beds:s.beds||{}, recLog:s.recLog||[]}) }, meta);
 }
 function fromRow(table, r){
   const num = v => v===""||v==null ? 0 : Number(v);

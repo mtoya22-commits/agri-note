@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.8";
+const APP_VERSION = "5.10";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -101,12 +101,12 @@ async function setBadgeMode(v){
    畝と区画
    ============================================================= */
 const BEDS = [
-  {id:"a", name:"畝a", note:"日当たり良好", winterSun:"good"},
-  {id:"b", name:"畝b", note:"標準",         winterSun:"good"},
-  {id:"c", name:"畝c", note:"冬は半日陰",   winterSun:"half"}
+  {id:"a", name:"畝a", note:"日当たり良好"},
+  {id:"b", name:"畝b", note:"標準"},
+  {id:"c", name:"畝c", note:"標準"}
 ];
 const DIV = 4;
-/* 「冬は半日陰」の冬：11/1〜2月末。栽培期間がここに30日以上かかる作付けだけ、日当たりを判定に使う */
+/* 日当たりを見る「冬」：11/1〜2月末。栽培期間がここに30日以上かかる作付けだけ、日当たりを判定に使う */
 const WINTER = { from:[11,1], to:[2,28], minDays:30 };
 function winterDays(iv){
   let n = 0;
@@ -143,7 +143,14 @@ const bedOf    = p => bedById(p.bedId || slotBed((p.slots||[])[0]));
    株間は作物の条件（spacingCm）として別に持ち、判断のたびに計算する。
    位置を持たない古い作付けは、読むたびに slots（1/4畝）から変換する（書き戻さない）。
    ============================================================= */
-const BED_DEFAULTS = { a:{lengthCm:500, widthCm:70}, b:{lengthCm:500, widthCm:70}, c:{lengthCm:400, widthCm:70} };   // 概算（設定で変更可）
+/* 畝の寸法と、冬に半日陰になる範囲（畝の左から何cm〜何cm）。どちらも概算で、設定で変更できる。
+   shade：日当たりは畝ごとではなく畝の中の場所ごとに決まる（南側の建物・木は畝の一部だけを陰にする）。
+   2026年10月：畝cの南側にあった他人の倉庫が撤去され、右1/3（265cm以降）の冬の日当たりが改善した */
+const BED_DEFAULTS = {
+  a:{lengthCm:500, widthCm:70, shade:[]},
+  b:{lengthCm:500, widthCm:70, shade:[]},
+  c:{lengthCm:400, widthCm:70, shade:[{from:0, to:265}]}
+};
 const PLANT_HALF = 5;      // 株どうしは中心が10cm未満なら「同じ場所」＝使用中
 const ROT_BUFFER = 10;     // 連作判定で、畝の中で置いた位置に足す根の広がり（アプリの仮の目安）
 const GRID = 5;            // 位置は5cm刻み
@@ -159,6 +166,34 @@ function bedDims(id){
   const s = ((state && state.settings && state.settings.beds) || {})[id] || {};
   const n = v => Number(v) > 0 ? Number(v) : null;
   return { lengthCm: n(s.lengthCm) || d.lengthCm, widthCm: n(s.widthCm) || d.widthCm };
+}
+/* 冬に半日陰になる範囲。設定に shade があればそちら（空の配列＝「半日陰なし」として既定を打ち消す） */
+function bedShade(id){
+  const s = ((state && state.settings && state.settings.beds) || {})[id] || {};
+  const raw = Array.isArray(s.shade) ? s.shade : ((BED_DEFAULTS[id] || {}).shade || []);
+  const L = bedDims(id).lengthCm, cl = v => Math.max(0, Math.min(L, Math.round(Number(v) || 0)));
+  return raw.map(r => ({ from: cl(r.from), to: cl(r.to) })).filter(r => r.to > r.from)
+            .sort((x,y) => x.from - y.from);
+}
+/* その範囲（from〜to cm）のうち、冬に半日陰になる長さ */
+function shadeLen(id, from, to){
+  return bedShade(id).reduce((n,r)=> n + Math.max(0, Math.min(to, r.to) - Math.max(from, r.from)), 0);
+}
+/* 置く場所（株は栽培スペース、まとまり・帯はその範囲）のうち、冬に半日陰になる割合 0〜1 */
+function shadeFrac(cands, bedId, crop){
+  let tot = 0, sh = 0;
+  (cands||[]).forEach(sp=>{ const r = spaceOf(sp, crop); tot += Math.max(0, r.to - r.from); sh += shadeLen(bedId, r.from, r.to); });
+  return tot > 0 ? Math.min(1, sh / tot) : 0;
+}
+const shadeLabel = id => bedShade(id).map(r=>`左から${r.from}〜${r.to}cm`).join("・");
+/* 畝の一言：半日陰の範囲から作る（範囲を直せば表示も変わる） */
+function bedNote(id){
+  const b = bedById(id), sh = bedShade(id);
+  if(!b) return "";
+  if(!sh.length) return b.note;
+  const L = bedDims(id).lengthCm;
+  if(sh.length===1 && sh[0].from<=0 && sh[0].to>=L) return "冬は半日陰";
+  return `冬は${sh.map(r=>`${r.from}〜${r.to}cm`).join("・")}が半日陰`;
 }
 function slotRange(s){ const L = bedDims(slotBed(s)).lengthCm, i = slotIdx(s); return { from: L*(i-1)/DIV, to: L*i/DIV }; }
 function slotSpot(s){ const r = slotRange(s); return { kind:"band", from:r.from, to:r.to, precision:"slot", slot:s }; }
@@ -946,11 +981,16 @@ function checkAt(cands, bedId, cropId, dateStr, ignoreId){
     const nb = anchorDate(crop.start.notBefore, new Date(d.getFullYear(),0,1));
     if(d < nb) out.push({level:"amber", title:"遅霜の心配", text:`平年の終霜（${jp(lastFrost(d.getFullYear()))}）から${crop.start.notBefore.days}日たつ${jp(nb)}より前です。${esc(crop.name)}は霜に弱いので、遅霜に注意してください。`});
   }
-  const inWinter = bed.winterSun==="half" && winterDays(cand) >= WINTER.minDays;
-  if(crop.winterSunRequired && inWinter)
-    out.push({level:"amber", title:"日照注意", text:`${esc(bed.name)}は${esc(bed.note)}。${esc(crop.winterSunNote||"")}日当たりの良い畝を検討してください。`});
-  if(crop.shadeOk && inWinter)
-    out.push({level:"good", title:"この畝に向いています", text:`${esc(crop.name)}は半日陰でも育ちます。${esc(bed.name)}を使えば、日当たりの良い畝を他の作物に空けられます。`});
+  /* 日照：冬をまたぐ作付けだけ。畝ごとではなく「その場所が半日陰の範囲にどれだけ入っているか」で判定する */
+  const inWinter = winterDays(cand) >= WINTER.minDays;
+  const sf = inWinter ? shadeFrac(cands, bedId, crop) : 0;
+  const pct = Math.round(sf*100), where = `${esc(bed.name)}の${esc(shadeLabel(bedId))}`;
+  if(crop.winterSunRequired && sf >= 0.5)
+    out.push({level:"amber", title:"日照注意", text:`この場所は${pct}%が冬に半日陰になります（${where}）。${esc(crop.winterSunNote||"")}冬も日当たりの良い場所を検討してください。`});
+  else if(crop.winterSunRequired && sf > 0)
+    out.push({level:"note", title:"日照の確認", text:`この場所の${pct}%が、冬に半日陰になる範囲（${where}）に入っています。半分以上かかると注意を出します。`});
+  if(crop.shadeOk && sf >= 0.5)
+    out.push({level:"good", title:"この場所に向いています", text:`${esc(crop.name)}は半日陰でも育ちます。${where}を使えば、日当たりの良い場所を他の作物に空けられます。`});
   return out;
 }
 function checkPlanting(slots, cropId, dateStr, ignoreId){
@@ -970,7 +1010,7 @@ function extendFrom(anchor, need, dateStr, cropId){
   return got.sort((a,b)=>a-b).map(i=>bed+i);
 }
 /* 置き場所の点数（小さいほど良い）。使用中は候補にしない
-   連作の赤 100／黄色の注意 10／半日陰向き −5／冬を越す作物を冬に半日陰の畝へ置く 3（警告は出さない軽い後回し） */
+   連作の赤 100／黄色の注意 10／半日陰向き −5／冬を越す作付けを半日陰の範囲へ置く 3×かかる割合（警告は出さない軽い後回し） */
 const PLACE_W = { red:100, amber:10, good:-5, winterShade:3 };
 function placeScore(slots, cropId, date){
   const crop = cropById(cropId), bed = bedById(slotBed(slots[0]));
@@ -979,7 +1019,8 @@ function placeScore(slots, cropId, date){
   let score = 0;
   ws.forEach(w=>{ score += PLACE_W[w.level] || 0; });
   const cand = interval({ id:"__cand", cropId, date, slots, status:"active" });
-  if(!crop.shadeOk && !crop.winterSunRequired && bed.winterSun==="half" && winterDays(cand) >= WINTER.minDays) score += PLACE_W.winterShade;
+  if(!crop.shadeOk && !crop.winterSunRequired && winterDays(cand) >= WINTER.minDays)
+    score += PLACE_W.winterShade * shadeFrac(slots.map(slotSpot), bed.id, crop);
   return { slots, score, ws };
 }
 /* 1つの畝の中で一番良い並び（必要な区画数が続けて空いている所） */
@@ -996,9 +1037,10 @@ function bestInBed(bedId, cropId, date){
 function placeReason(best, crop){
   const warn = best.ws.filter(w=>w.level==="red"||w.level==="amber");
   if(warn.length) return `注意のない場所が空いていないため、注意が一番軽い場所にしました（${warn.map(w=>w.title).join("・")}）。`;
-  if(best.ws.some(w=>w.level==="good")) return `${crop.name}は半日陰でも育つので、日当たりの良い畝を他の作物に空けておけるこの畝にしました。`;
+  if(best.ws.some(w=>w.level==="good")) return `${crop.name}は半日陰でも育つので、日当たりの良い場所を他の作物に空けておけるこの場所にしました。`;
   const bed = bedById(slotBed(best.slots[0]));
-  if(bed.winterSun!=="half" && (crop.winterSunRequired || best.winter)) return "冬を越す作物なので、冬も日当たりの良い畝から選びました。連作の注意もありません。";
+  if(!shadeFrac(best.slots.map(slotSpot), bed.id, crop) && (crop.winterSunRequired || best.winter))
+    return "冬を越す作物なので、冬も日当たりの良い場所から選びました。連作の注意もありません。";
   return "連作・日照・霜の注意がない場所です。";
 }
 function autoPlace(cropId, dateStr){
@@ -1280,7 +1322,7 @@ function renderField(){
   BEDS.forEach(bed=>{
     const ps = state.plantings.filter(p=>p.status!=="done" && bedOf(p).id===bed.id && expectedEnd(p) >= t0).sort((a,b)=>a.date<b.date?-1:1);
     h += `<div class="card bedcard" data-b="${bed.id}">
-      <div class="bedhead"><span class="bed" data-b="${bed.id}">${bed.id}</span><span class="bedname">${esc(bed.name)}</span><span class="bednote">${esc(bed.note)}</span></div>
+      <div class="bedhead"><span class="bed" data-b="${bed.id}">${bed.id}</span><span class="bedname">${esc(bed.name)}</span><span class="bednote">${esc(bedNote(bed.id))}</span></div>
       ${bedBarHtml(bed.id)}
       <div class="barfoot"><span class="hint">空いている所をタップして株を置く</span><span class="barbtns"><button class="btn small" data-act="seq-open" data-b="${bed.id}">左から順に登録</button><button class="btn small" data-act="place-open" data-b="${bed.id}">＋ 株を置く</button></span></div>
       <div class="label-s striplabel">区画でかんたん登録（1/4畝ずつ）</div>
@@ -1513,6 +1555,16 @@ function renderSettings(){
           <label>幅<input type="number" data-bedwid="${b.id}" value="${d.widthCm}" min="20" max="500" step="5" inputmode="numeric"></label></div>`; }).join("")}</div>
       ${state.sync.url && (state.sync.schema||4) < 5 ? `<div class="desc" style="margin-top:8px">スプレッドシート側のスクリプト（Code.gs）が古い版です。今のままでも同期できますが、次の段階（畝の中に株を置く）の前に更新が必要です。</div>` : ""}</div>
   </div></div>`;
+  h += `<div class="sect"><div class="sect-head"><h2>冬の日当たり</h2></div><div class="card">
+    <div class="setrow"><div class="desc">畝の中で<b>冬に半日陰になる範囲</b>（畝の左から何cm〜何cm）。玉ねぎ・いちご・春どりキャベツのように冬を越す作物の注意と、おすすめの位置に使います。日当たりは畝ごとではなく場所ごとなので、同じ畝でも日の当たる側が先に選ばれます。<br>
+      南側の建物や木が変わったら直してください。<b>どちらかを空にすると「半日陰なし」</b>になります。</div>
+      <div class="bedgrid">${BEDS.map(b=>{ const r = bedShade(b.id)[0], L = bedDims(b.id).lengthCm;
+        return `<div class="bedrow"><span class="bed" data-b="${b.id}">${b.id}</span>
+          <label>左から<input type="number" data-shadefrom="${b.id}" value="${r?r.from:""}" min="0" max="${L}" step="5" inputmode="numeric" placeholder="−"></label>
+          <label>まで<input type="number" data-shadeto="${b.id}" value="${r?r.to:""}" min="0" max="${L}" step="5" inputmode="numeric" placeholder="−"></label></div>`; }).join("")}</div>
+      <div class="desc" style="margin-top:8px">いま：${BEDS.map(b=>`${esc(b.name)}＝${bedShade(b.id).length?esc(shadeLabel(b.id)):"半日陰なし"}`).join("／")}</div>
+      ${BEDS.some(b=>bedShade(b.id).length>1) ? `<div class="warn note"><span class="wt">範囲が2つ以上あります</span>この画面では1つめだけ直せます。</div>` : ""}</div>
+  </div></div>`;
   h += `<div class="sect"><div class="sect-head"><h2>表示</h2></div><div class="card">
     <div class="setrow"><div class="lbl">明るさ</div>
       <div class="desc">明るい屋外ではライトが読みやすいです。「自動」はスマホの設定に合わせます。この端末だけの設定です。</div>
@@ -1549,6 +1601,24 @@ function renderSettings(){
     const beds = JSON.parse(JSON.stringify(state.settings.beds||{}));
     beds[id] = Object.assign({}, bedDims(id), beds[id]||{}, {[key]:v});
     putSettings({beds}); renderAll(); toast(`${bedById(id).name}の${key==="lengthCm"?"長さ":"幅"}を${v}cmにしました`);
+  }));
+  document.querySelectorAll("[data-shadefrom],[data-shadeto]").forEach(inp=>inp.addEventListener("change", ()=>{
+    const id = inp.dataset.shadefrom || inp.dataset.shadeto, L = bedDims(id).lengthCm;
+    const num = v => String(v).trim()==="" ? null : (isFinite(Number(v)) ? Math.round(Number(v)) : NaN);
+    const cur = bedShade(id)[0] || null;
+    const f = inp.dataset.shadefrom ? num(inp.value) : (cur ? cur.from : null);
+    const t = inp.dataset.shadeto   ? num(inp.value) : (cur ? cur.to   : null);
+    if(Number.isNaN(f) || Number.isNaN(t)){ renderSettings(); toast("数字で入れてください"); return; }
+    let sh = [];
+    if(f!=null && t!=null){
+      if(!(f >= 0 && t <= L && t > f)){ renderSettings(); toast(`0〜${L}cmの範囲で、「まで」を大きい方にしてください`); return; }
+      sh = [{from:f, to:t}];
+    }
+    const rest = bedShade(id).slice(1);
+    const beds = JSON.parse(JSON.stringify(state.settings.beds||{}));
+    beds[id] = Object.assign({}, beds[id]||{}, {shade: sh.concat(rest)});
+    putSettings({beds}); renderAll();
+    toast(sh.length ? `${bedById(id).name}の半日陰を左から${f}〜${t}cmにしました` : `${bedById(id).name}の半日陰をなしにしました`);
   }));
   document.querySelectorAll("[data-season]").forEach(inp=>inp.addEventListener("change", ()=>{
     const so = Object.assign({}, state.settings.seasonOffset); so[inp.dataset.season] = Math.max(-30,Math.min(30,parseInt(inp.value,10)||0));
@@ -1668,7 +1738,7 @@ function renderPlantSheet(){
       return {c, st, d, err, red, mid, sun, good, short, rank:(err?200:0)+(red?100:0)+(short?50:0)+(mid?30:0)+(sun?20:0)+so*10+Math.min(Math.max(0,diffD(parseD(d),today())),365)/40};
     }).filter(Boolean).sort((a,b)=>a.rank-b.rank);
     h = `<h3>${esc(bed.name)}・区画${slotIdx(ps.anchor)}に${ps.after?"次に":""}植える</h3>
-      <div class="sheet-sub">${esc(bed.note)}。${ps.after?`今の作付けが終わる${jp(addD(ps.after,-1))}より後で判定しています。`:"この区画での連作・日照・広さを判定して並べています。"}</div>
+      <div class="sheet-sub">${esc(bedNote(bed.id))}。${ps.after?`今の作付けが終わる${jp(addD(ps.after,-1))}より後で判定しています。`:"この区画での連作・日照・広さを判定して並べています。"}</div>
       <div class="croplist">${rows.map(r=>{
         const when = statusChip(r.st);
         const tags = [ r.err?`<span class="tag red">使用中</span>`:"", r.red?`<span class="tag red">連作リスク高</span>`:"", r.mid?`<span class="tag amber">連作やや短い</span>`:"",
@@ -1697,7 +1767,7 @@ function renderPlantSheet(){
       <div class="label-s">畝</div>
       <div class="bedpick">${BEDS.map(b=>{ const t = bedTag(b), sel = b.id===ps.bed;
         return `<button class="bedopt${sel?" sel":""}" data-act="ps-bed" data-b="${b.id}" aria-pressed="${sel}"${t.off&&!sel?" disabled":""}>
-          <span class="bed" data-b="${b.id}">${b.id}</span><span class="bo-name">${esc(b.name)}</span><span class="bo-note">${esc(b.note)}</span>
+          <span class="bed" data-b="${b.id}">${b.id}</span><span class="bo-name">${esc(b.name)}</span><span class="bo-note">${esc(bedNote(b.id))}</span>
           <span class="bo-tag ${t.cls}">${t.text}</span></button>`; }).join("")}</div>
       ${rec && rec.bed===ps.bed && rec.slots.join()===ps.slots.slice().sort().join() ? `<div class="recwhy"><b>おすすめの理由</b>${esc(rec.reason)}</div>` : ""}
       <div class="label-s">${esc(bed.name)}の使う区画${need>1?`（目安 ${need}区画）`:""}</div>
@@ -1781,6 +1851,8 @@ function bedBarHtml(bedId, opt){
   const L = bedDims(bedId).lengthCm, pc = x => Math.max(0, Math.min(100, x / L * 100));
   const items = barItems(bedId);
   let h = "";
+  bedShade(bedId).forEach(r=>{ const a = pc(r.from), w = Math.max(0.5, pc(r.to) - a);
+    h += `<i class="bb-shade" style="left:${a}%;width:${w}%" title="冬は半日陰（左から${r.from}〜${r.to}cm）"></i>`; });
   for(let m=100; m<L; m+=100) h += `<i class="bb-tick" style="left:${pc(m)}%"></i>`;
   items.filter(x=>x.sp.kind!=="plant").forEach(x=>{
     const a = pc(x.sp.from), w = Math.max(0.5, pc(x.sp.to) - a), exact = x.sp.precision==="exact";
@@ -2369,8 +2441,9 @@ function spotsListHtml(p){
    3) 理由は、順位を決めた項目（2位との差が出た項目）と、1位の評価結果から作る
    ============================================================= */
 /* おすすめの計算方法の版。アプリの版とは別に、おすすめの結果が変わる変更（比べる順番・評価の項目・日照の判定など）をしたときだけ上げる。
-   v1：v5.5 の8項目（連作の赤→赤の重なり→黄色の数→日照→黄色の連作の重なり→半端なすき間→接する数→畝の順・左から） */
-const REC_VERSION = 1;
+   v1：v5.5 の8項目（連作の赤→赤の重なり→黄色の数→日照→黄色の連作の重なり→半端なすき間→接する数→畝の順・左から）
+   v2：v5.9。日照を畝ごとの○×から「その場所が半日陰にかかる割合」に変えた（同じ畝の中でも日当たりの良い側が先に来る） */
+const REC_VERSION = 2;
 let END_CACHE = null;                       // おすすめの計算中だけ、作付けの終わりの見込みを使い回す
 function withEndCache(fn){ const was = END_CACHE; END_CACHE = END_CACHE || new Map(); try{ return fn(); } finally { END_CACHE = was; } }
 /* 置いたときの栽培スペース（半端なすき間・隣接の判定用）。株は中心±株間の半分（5cm刻みで切り上げ） */
@@ -2425,8 +2498,11 @@ function evalCandidate(sp, bedId, cropId, dateStr, minGap){
   const hasRed = ws.some(w=>w.title==="連作リスク高") ? 1 : 0;
   const ambers = ws.filter(w=>w.level==="amber");
   const cand = interval(candPlanting([sp], bedId, cropId, dateStr));
-  const winter = bed.winterSun==="half" && winterDays(cand) >= WINTER.minDays;
-  const sun = !winter ? 0 : crop.shadeOk ? -1 : crop.winterSunRequired ? 0 : 1;   // 必須は黄色の注意で数える
+  /* 日照：冬をまたぐ作付けだけ。半日陰にかかる割合（0〜1）をそのまま使うので、同じ畝の中でも
+     日当たりの良い側が先に来る。半日陰でも育つ作物は符号を反転して、半日陰の側を選ぶ */
+  const winter = winterDays(cand) >= WINTER.minDays;
+  const sf = winter ? shadeFrac([sp], bedId, crop) : 0;
+  const sun = crop.shadeOk ? -sf : sf;
   /* すき間：同じ時期に畝にいる作物の栽培スペースとの間 */
   const me = spaceOf(sp, crop); let lft = 0, rgt = L;
   state.plantings.forEach(p=>{
@@ -2444,8 +2520,8 @@ function evalCandidate(sp, bedId, cropId, dateStr, minGap){
   const orphan = [gl, gr].filter(g=>g > 0 && g < minGap).length;
   const adj = [gl, gr].filter(g=>g===0).length;
   const pos = sp.kind==="plant" ? sp.center : sp.from;
-  return { sp, bedId, ws, hasRed, redOv:rot.red, amberN:ambers.length, ambers, sun, amberOv:rot.amber, orphan, adj, gaps:[gl, gr],
-           key:[hasRed, Math.round(rot.red*100), ambers.length, sun, Math.round(rot.amber*100), orphan, -adj, BEDS.findIndex(b=>b.id===bedId), pos] };
+  return { sp, bedId, ws, hasRed, redOv:rot.red, amberN:ambers.length, ambers, sun, winter, amberOv:rot.amber, orphan, adj, gaps:[gl, gr],
+           key:[hasRed, Math.round(rot.red*100), ambers.length, Math.round(sun*100), Math.round(rot.amber*100), orphan, -adj, BEDS.findIndex(b=>b.id===bedId), pos] };
 }
 const cmpKey = (a, b) => { for(let i=0;i<a.key.length;i++){ if(a.key[i]!==b.key[i]) return a.key[i] - b.key[i]; } return 0; };
 const TIER_REASON = ["連作の赤を避けられる場所です", "連作の重なりがいちばん小さい場所です", "注意がいちばん少ない場所です", null, "連作（やや短い）の重なりが小さい場所です", "半端な空きを残さない場所です", "隣の作物や畝の端に接して、詰めて置ける場所です", "条件が同じ場所のうち、畝の順（a→b→c）で先の畝です", "条件が同じ場所のうち、いちばん左です"];
@@ -2471,14 +2547,17 @@ function recommendAt(bedIds, cropId, dateStr, kind, len, extra){
 function recReason(r, tiers, cropId){
   const c = cropById(cropId), bed = bedById(r.bedId), sc = spacingOf(c);
   const where = `${bed.name}・${r.sp.kind==="plant" ? `左から${r.sp.center}cm付近` : `左から${r.sp.from}〜${r.sp.to}cm`}`;
-  const text = t => t===3 ? (r.sun < 0 ? `${c.name}は半日陰でも育つので、日当たりの良い畝を他の作物に残せます` : "冬も日当たりの良い畝です")
+  const text = t => t===3 ? (r.sun < 0 ? `${c.name}は半日陰でも育つので、日当たりの良い場所を他の作物に残せます`
+                              : r.sun > 0 ? "この畝の中で、冬の半日陰が一番少ない場所です" : "冬も日当たりの良い場所です")
                   : t===1 ? `${TIER_REASON[1]}（重なり${Math.round(r.redOv*100)}%）` : t>=0 ? TIER_REASON[t] : "";
   const main = tiers.filter(t=>t>=0).slice(0,2).map(text).join("。");
   const facts = [];
   facts.push(r.hasRed ? `連作リスク高（重なり${Math.round(r.redOv*100)}%）` : r.amberOv > 0 ? "連作は推奨間隔にやや短い" : "連作の問題なし");
   if(r.sp.kind==="plant") facts.push(sc ? (r.ambers.some(w=>w.title==="株間が狭い") ? "株間がやや狭い" : `必要な株間（${sc.min}cm）を確保`) : "株間の目安なし");
   r.ambers.filter(w=>!/連作|株間/.test(w.title)).forEach(w=>facts.push(w.title));
-  if(r.sun < 0) facts.push("半日陰向きの畝"); else if(r.sun > 0) facts.push("冬は半日陰の畝");
+  if(r.sun < 0) facts.push(r.sun <= -0.5 ? "半日陰向きの場所" : `一部が半日陰（${Math.round(-r.sun*100)}%）`);
+  else if(r.sun > 0) facts.push(r.sun >= 0.5 ? `冬は半日陰（${Math.round(r.sun*100)}%）` : `冬に一部半日陰（${Math.round(r.sun*100)}%）`);
+  else if(r.winter) facts.push("冬も日当たり良好");
   facts.push(r.orphan ? "半端な空きが残る" : "半端な空きなし");
   if(r.adj) facts.push(r.adj===2 ? "両側に接する" : "片側に接する");
   return { where, main, facts };

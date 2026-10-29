@@ -661,6 +661,10 @@ button.bedopt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .bedcard[data-b="a"] .bedbar{border-color:var(--bed-a)} .bedcard[data-b="b"] .bedbar{border-color:var(--bed-b)} .bedcard[data-b="c"] .bedbar{border-color:var(--bed-c)}
 .bedbar.mini{cursor:default;margin-top:12px}
 .bb-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);opacity:.7}
+/* 冬に半日陰になる範囲（畝の中の場所ごとの日当たり）。作物の帯より下に、薄い斜線で敷く */
+.bb-shade{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;border-right:1px dashed var(--line);
+  background:repeating-linear-gradient(135deg,var(--line2),var(--line2) 2px,transparent 2px,transparent 7px);opacity:.75}
+.bb-shade:first-child{border-left:none}
 .bb-band{position:absolute;top:5px;bottom:5px;border-radius:6px;background:var(--accent-soft);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:11px;color:var(--ink);cursor:pointer}
 .bb-band span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 3px}
 .bb-band.slot{border-style:dashed;background:color-mix(in srgb, var(--accent-soft) 70%, transparent)}

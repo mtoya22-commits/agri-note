@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.12";
+const APP_VERSION = "5.13";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -746,11 +746,45 @@ function expectedEndRaw(p){
   return e;
 }
 function lastLogDate(p){ const ls = state.logs.filter(l=>l.plantingId===p.id); return ls.length ? parseD(ls.map(l=>l.date).sort().pop()) : null; }
+/* 畝を使い始める日＝播種・定植した日。
+   土づくりや畝立ての「予定日」は計算値で、いつ始めるかは前作の片づき具合で決まる。
+   計算値で畝を押さえると、前作の終わりの見込み（これも計算値）とぶつかって、事実でない重なりが出る。
+   ただし準備を実際に始めた記録があれば、その日から使っている（記録は事実）。
+   準備の日数が足りるかどうかは prepSqueeze() が別に知らせる */
 function bookingStart(p){
   const crop = cropById(p.cropId), base = parseD(p.date);
-  const prep = Math.min(0, ...crop.tasks.filter(t=>t.trigger.type==="offset").map(t=>t.trigger.days));
-  return addD(base, prep);
+  if(!crop) return base;
+  const prep = new Set(crop.tasks.filter(isPrepTask).map(t=>t.id));
+  const logged = ((state && state.logs) || [])
+    .filter(l=>l.plantingId===p.id && prep.has(l.taskId)).map(l=>l.date).sort()[0];
+  const d = logged ? parseD(logged) : base;
+  return d < base ? d : base;
 }
+/* 前作のあと、土づくり・畝立てに使える日数。目安に足りなければ知らせる（止めはしない） */
+function prepSqueeze(p){
+  const crop = cropById(p.cropId); if(!crop) return null;
+  const need = prepDays(crop); if(!need) return null;
+  const bed = bedOf(p); if(!bed) return null;
+  const start = parseD(p.date), mine = spotsOf(p);
+  let prev = null, end = null;
+  state.plantings.forEach(q=>{
+    if(q.id===p.id) return;
+    const b = bedOf(q); if(!b || b.id!==bed.id) return;
+    if(!mine.some(x=>spotsOf(q).some(y=>spotsClash(x, y, bed.id)))) return;
+    const e = expectedEnd(q);
+    if(e >= start) return;                         // まだ終わらない＝場所の重複として別に扱う
+    if(!end || e > end){ end = e; prev = q; }
+  });
+  if(!prev) return null;
+  const have = diffD(start, end);
+  if(have >= need) return null;
+  const first = crop.tasks.filter(isPrepTask).sort((a,b)=>a.trigger.days-b.trigger.days)[0];
+  return { prev, end, have, need, first, easy:addD(end, need) };
+}
+const prepSqueezeText = sq => `前作の<b>${esc(cropById(sq.prev.cropId).name)}</b>が${jp(sq.end)}まであるので、`
+  + `準備に使えるのは<b>${sq.have}日</b>です（目安は${sq.need}日）。`
+  + (sq.first ? `${esc(sq.first.name)}は本来${-sq.first.trigger.days}日前の作業です。` : "")
+  + `${jp(sq.easy)}以降なら余裕があります。このまま進める場合は、準備を短くして間に合わせることになります。`;
 /* 準備作業（土づくり等）にかかる日数：植え付けの何日前から区画を使うか */
 function prepDays(c){ return -Math.min(0, ...c.tasks.filter(t=>t.trigger.type==="offset").map(t=>t.trigger.days)); }
 /* 前の作付けが終わった後に植える場合、準備作業のぶんだけ後ろにずらした日から */
@@ -1039,6 +1073,9 @@ function checkAt(cands, bedId, cropId, dateStr, ignoreId){
     const nb = anchorDate(crop.start.notBefore, new Date(d.getFullYear(),0,1));
     if(d < nb) out.push({level:"amber", title:"遅霜の心配", text:`平年の終霜（${jp(lastFrost(d.getFullYear()))}）から${crop.start.notBefore.days}日たつ${jp(nb)}より前です。${esc(crop.name)}は霜に弱いので、遅霜に注意してください。`});
   }
+  /* 前作のあと、準備の日数が足りるか */
+  const sq = prepSqueeze(candPlanting(cands, bedId, cropId, dateStr));
+  if(sq) out.push({level:"amber", title:"準備の日数が足りないかも", text:prepSqueezeText(sq)});
   /* 日照：冬をまたぐ作付けだけ。畝ごとではなく「その場所が半日陰の範囲にどれだけ入っているか」で判定する */
   const inWinter = winterDays(cand) >= WINTER.minDays;
   const sf = inWinter ? shadeFrac(cands, bedId, crop) : 0;
@@ -1307,6 +1344,26 @@ function renderWeek(){
       <ul>${targets.map(t=>`<li><b>${esc(t.c.name)}</b>（${esc(bedOf(t.p).name)} 区画${slotNums(t.p)}）${esc(t.text)}</li>`).join("")}</ul>
       <div class="frost-src">${esc(R().forecastPoint.name)}の予報（Open-Meteo）から判定。判定の目安は暫定です。</div>
     </div>`;
+  }
+
+  /* 前作のあと、準備の日数が足りない（まだ始めていない作付けだけ。始めてしまえば言っても仕方ない） */
+  state.plantings.filter(p=>p.status!=="done" && !actualStart(p) && parseD(p.date) >= t0).forEach(p=>{
+    const sq = prepSqueeze(p); if(!sq) return;
+    const c = cropById(p.cropId);
+    h += `<div class="warn amber" style="margin-top:14px"><span class="wt">準備の日数が足りないかも</span>
+      ${esc(bedOf(p).name)}・<b>${esc(c.name)}</b>（${esc(c.start.action)} ${jp(parseD(p.date))}）<br>
+      <span class="wsub">${prepSqueezeText(sq)}</span>
+      <div class="btns" style="margin-top:8px"><button class="btn" data-act="planting" data-p="${p.id}">${esc(c.name)}を開く</button></div></div>`;
+  });
+
+  /* 終わりの見込みを過ぎたのに終了していない作付け。
+     畑では片づいているのに、アプリでは育てたままになりやすい（連作の履歴もその分ずれる） */
+  const overdue = state.plantings.filter(p=>p.status!=="done" && actualStart(p) && expectedEnd(p) < t0 && bedOf(p));
+  if(overdue.length){
+    h += `<div class="warn note" style="margin-top:14px"><span class="wt">終わりの見込みを過ぎた作付け</span>
+      ${overdue.map(p=>`${esc(bedOf(p).name)}・<b>${esc(cropById(p.cropId).name)}</b>（〜${jp(expectedEnd(p))}見込み）`).join("<br>")}
+      <br><span class="wsub">畑から片づけたら「終了」にしてください。この場所が空き、連作の履歴はその日から数えます。まだ畑にあるなら、そのままで構いません。</span>
+      <div class="btns" style="margin-top:8px">${overdue.map(p=>`<button class="btn" data-act="finish" data-p="${p.id}">${esc(cropById(p.cropId).name)}を終了にする</button>`).join("")}</div></div>`;
   }
 
   /* 区画の予定の重なり（前作がまだ終わっていない／開始が遅れて終わりがずれた等） */
@@ -1891,7 +1948,7 @@ function renderPlantSheet(){
       ${parseD(ps.date) <= today() ? `<div class="startchoice" role="radiogroup" aria-label="${esc(c.start.action)}の状況">
         <label><input type="radio" name="ps-start" value="0"${ps.startDone?"":" checked"}> これから${verbOf(c).now}</label>
         <label><input type="radio" name="ps-start" value="1"${ps.startDone?" checked":""}> もう${verbOf(c).past}（${jp(parseD(ps.date))}）</label></div>` : ""}
-      <div class="hint" style="margin-top:6px">この区画を使う期間の見込み：${jp(bookingStart({cropId:ps.cropId,date:ps.date}))}〜${jp(E)}（準備作業から収穫の終わりまで）</div>
+      <div class="hint" style="margin-top:6px">この区画を使う期間の見込み：${jp(parseD(ps.date))}〜${jp(E)}（${esc(cropById(ps.cropId).start.action)}から収穫の終わりまで）。土づくりなどの準備は、前作が片づいてからで構いません。</div>
       ${warnHtml(ws)}
       <div class="sheet-foot"><button class="btn" data-act="close">やめる</button>
         <button class="btn primary" data-act="ps-save"${ps.slots.length&&!blocking(ws)?"":" disabled"}>登録する</button></div>`;
@@ -2735,6 +2792,8 @@ function openPlanting(pid){
   }
   h += `<div class="label-s">記録（${logs.length}件）</div>`;
   h += logs.length ? `<div class="hist">${groupedLogs(logs).map(histRow).join("")}</div>` : `<div class="empty">まだ記録がありません。</div>`;
+  if(!isDone && !actualStart(p)){ const sq = prepSqueeze(p);
+    if(sq) h += `<div class="warn amber" style="margin-top:10px"><span class="wt">準備の日数が足りないかも</span>${prepSqueezeText(sq)}</div>`; }
   if(!isDone && hs.length && c.harvestMode==="single")
     h += `<div class="warn note" style="margin-top:10px"><span class="wt">収穫は記録済みです</span>畑から片づけたら<b>「作付けを終了」</b>を押してください。押すまでは、この場所は使用中のままになります（次の作付けの準備と重なって見えます）。</div>`;
   h += `<div class="sheet-foot">

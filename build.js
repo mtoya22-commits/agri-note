@@ -16,6 +16,10 @@ let pv = page
   .replace(/<\/body>\n<\/html>\n?$/, "")
   .replace("<!--__DATA__-->", ()=>`<script>window.HATAKE_PREVIEW=true;window.CROPS_DATA=${crops.trim()};</script>`)
   .replace('<script src="app.js"></script>', ()=>`<script>\n${app}\n</script>`);
+// 版の確認用：APP_VERSION から作るので、手で直す必要がない
+const ver = (app.match(/const APP_VERSION = "([^"]+)"/)||[])[1];
+if(!ver) throw new Error("APP_VERSION が読めませんでした");
+fs.writeFileSync("version.json", JSON.stringify({version:ver}) + "\n");
 fs.mkdirSync("dist",{recursive:true});
 fs.writeFileSync("dist/preview.html", pv);
-console.log("index.html", fs.statSync("index.html").size, "preview.html", fs.statSync("dist/preview.html").size);
+console.log("version.json", ver, "index.html", fs.statSync("index.html").size, "preview.html", fs.statSync("dist/preview.html").size);

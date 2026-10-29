@@ -640,6 +640,10 @@ button.bedopt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .bedbar{position:relative;height:46px;margin-top:10px;border-radius:9px;background:var(--surface2);border:1px solid var(--line2);cursor:crosshair;overflow:visible;touch-action:manipulation}
 .bedcard[data-b="a"] .bedbar{border-color:var(--bed-a)} .bedcard[data-b="b"] .bedbar{border-color:var(--bed-b)} .bedcard[data-b="c"] .bedbar{border-color:var(--bed-c)}
 .bedbar.mini{cursor:default;margin-top:12px}
+.updbar{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 12px;border-radius:10px;
+  background:var(--soon-soft);border:1px solid var(--soon);font-size:13px;line-height:1.5}
+.updbar span{flex:1}
+.updbar .btn{flex:none;padding:7px 12px;font-size:13px}
 .bb-tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);opacity:.7}
 /* 冬に半日陰になる範囲（畝の中の場所ごとの日当たり）。作物の帯より下に、薄い斜線で敷く */
 .bb-shade{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;border-right:1px dashed var(--line);

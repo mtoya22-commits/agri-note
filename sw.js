@@ -1,6 +1,6 @@
 /* 畑ノート：オフラインでも開けるようにアプリ本体をキャッシュする
    アプリを更新したら CACHE の番号を1つ上げる */
-const CACHE = "hatake-note-v5.10";
+const CACHE = "hatake-note-v5.12";
 const ASSETS = ["./", "./index.html", "./app.js", "./crops.json", "./manifest.webmanifest",
                 "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
@@ -16,6 +16,8 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  // 版の確認用のファイルだけは必ずネットから取る（キャッシュすると新しい版に気づけない）
+  if (new URL(req.url).pathname.endsWith("/version.json")) return;
   e.respondWith(caches.open(CACHE).then(async cache => {
     const hit = await cache.match(req, { ignoreSearch: true });
     const net = fetch(req).then(res => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => hit);

@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.10";
+const APP_VERSION = "5.12";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -323,6 +323,48 @@ function seasonOf(d){ const m = d.getMonth()+1; return m>=3&&m<=5 ? "spring" : m
 function offFor(cropId, d){ const s = state.settings; return ((s.seasonOffset||{})[seasonOf(d)]|0) + ((s.cropOffset||{})[cropId]|0); }
 
 /* =============================================================
+   新しい版のお知らせ（iPhoneのホーム画面アプリは、古い版を抱えたままになりやすい）
+   version.json（アプリと一緒に置く小さなファイル）を見て、違う版が出ていたら上に帯を出す。
+   「取り込む」で、保存してあるアプリ本体を捨てて読み直す。記録（localStorage）には触らない。
+   ============================================================= */
+let newVer = null;
+const UPD_KEY = "hatake-upd";
+function updBar(){
+  const el = $("#updbar"); if(!el) return;
+  el.hidden = !newVer;
+  if(newVer) el.innerHTML = `<span>新しい版（${esc(newVer)}）が出ています。いまは ${esc(APP_VERSION)} です。</span>`
+    + `<button class="btn" data-act="update-now">取り込む</button>`;
+}
+async function checkUpdate(force){
+  if(PREVIEW || location.protocol==="file:") return null;
+  let last = 0; try{ last = Number(lsGet(UPD_KEY)) || 0; }catch(e){}
+  if(!force && Date.now() - last < 30*60*1000) return null;      // ふだんは30分に1回まで
+  try{
+    const r = await fetch(`version.json?t=${Date.now()}`, {cache:"no-store"});
+    if(!r.ok) return null;
+    const v = String((await r.json()).version || "");
+    lsSet(UPD_KEY, String(Date.now()));
+    const was = newVer;
+    newVer = (v && v !== APP_VERSION) ? v : null;
+    updBar();
+    if(was !== newVer && state) renderSettings();
+    return v;
+  }catch(e){ return null; }
+}
+/* 保存してあるアプリ本体を全部捨てて読み直す。作付けの記録は localStorage なので消えない */
+async function applyUpdate(){
+  try{
+    if("serviceWorker" in navigator){
+      const rs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map(r=>r.unregister()));
+    }
+    if(window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }
+  }catch(e){}
+  try{ lsSet(UPD_KEY, "0"); }catch(e){}
+  location.reload();
+}
+
+/* =============================================================
    状態と保存
    ============================================================= */
 let state = null;
@@ -594,7 +636,7 @@ window.addEventListener("online", ()=>sync(true));
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState!=="visible" || !state) return;
   if(Date.now() - state.sync.lastPull > 60000) sync(true); else scheduleFlush(300);
-  refreshFrost(); updateBadge();
+  refreshFrost(); updateBadge(); checkUpdate();
 });
 setInterval(()=>{ if(state && state.sync.outbox.length) sync(false); }, 60000);
 
@@ -789,6 +831,22 @@ function bookingConflicts(){
     if(shared.size) out.push({ a, b, shared:[...shared].sort((m,n)=>slotIdx(m)-slotIdx(n)) });
   }
   return out;
+}
+
+/* 重なりの原因：前作の終わりの見込みをもう過ぎているなら「片づけたら終了にする」が答え。
+   重なっているのが後作の準備期間だけなら、そのことを書く（日付を直す必要はないことが多い） */
+function clashCause(k){
+  const t0 = today();
+  const early = interval(k.a).from <= interval(k.b).from ? k.a : k.b, late = early===k.a ? k.b : k.a;
+  const stale = interval(early).to < t0 && early.status!=="done" ? early : null;
+  const cl = cropById(late.cropId), ce = cropById(early.cropId);
+  const prepOnly = interval(early).to < parseD(late.date);     // 重なりは後作の「植える前の準備」の期間だけ
+  let text = "";
+  if(stale) text = `${esc(ce.name)}は終わりの見込み（${jp(interval(early).to)}）を過ぎています。<b>収穫・片づけが済んでいれば「終了」にしてください</b>。この場所が空いて、重なりも消えます。`;
+  else if(prepOnly) text = `重なっているのは${esc(cl.name)}の<b>土づくりなどの準備</b>の期間です。${esc(ce.name)}を片づけてから準備するなら、${esc(ce.name)}を終了にしたあとで進めてください。`;
+  else text = "開始が遅れると、終わりの見込みも後ろにずれます。どちらかの日付か区画を修正してください。";
+  if(stale && prepOnly) text += `<br>（重なっているのは${esc(cl.name)}の土づくりなどの準備の期間です。日付を直す必要はありません。）`;
+  return { text, stale, prepOnly };
 }
 
 /* =============================================================
@@ -1164,7 +1222,7 @@ function groupedLogs(logs){
 /* =============================================================
    描画
    ============================================================= */
-function renderAll(){ if(!state) return; renderWeek(); renderField(); renderLog(); renderSettings(); renderSyncDot(); updateBadge(); }
+function renderAll(){ if(!state) return; renderWeek(); renderField(); renderLog(); renderSettings(); renderSyncDot(); updateBadge(); updBar(); }
 
 function whenLabel(due, lateOk){
   const n = diffD(due, today());
@@ -1251,13 +1309,19 @@ function renderWeek(){
     </div>`;
   }
 
-  /* 区画の予定の重なり（開始が遅れて終わりがずれた等） */
+  /* 区画の予定の重なり（前作がまだ終わっていない／開始が遅れて終わりがずれた等） */
   const clashes = bookingConflicts();
   if(clashes.length){
-    h += `<div class="warn" style="margin-top:14px"><span class="wt">区画の予定が重なっています</span>
-      ${clashes.map(k=>`${esc(bedOf(k.a).name)} 区画${k.shared.map(slotIdx).join("・")}：<b>${esc(cropById(k.a.cropId).name)}</b>（〜${jp(interval(k.a).to)}見込み）と <b>${esc(cropById(k.b.cropId).name)}</b>（${jp(interval(k.b).from)}〜）`).join("<br>")}
-      <br><span class="wsub">開始が遅れると、終わりの見込みも後ろにずれます。どちらかの日付か区画を修正してください。</span>
-      <div class="btns" style="margin-top:8px">${clashes.map(k=>`<button class="btn" data-act="planting" data-p="${k.b.id}">${esc(cropById(k.b.cropId).name)}を開く</button>`).join("")}</div></div>`;
+    h += clashes.map(k=>{
+      const ca = cropById(k.a.cropId), cb = cropById(k.b.cropId);
+      const over = clashCause(k);
+      return `<div class="warn" style="margin-top:14px"><span class="wt">区画の予定が重なっています</span>
+        ${esc(bedOf(k.a).name)} 区画${k.shared.map(slotIdx).join("・")}：<b>${esc(ca.name)}</b>（〜${jp(interval(k.a).to)}見込み）と <b>${esc(cb.name)}</b>（${jp(interval(k.b).from)}〜）
+        <br><span class="wsub">${over.text}</span>
+        <div class="btns" style="margin-top:8px">${over.stale
+          ? `<button class="btn" data-act="finish" data-p="${over.stale.id}">${esc(cropById(over.stale.cropId).name)}を終了にする</button>` : ""}
+          <button class="btn" data-act="planting" data-p="${k.b.id}">${esc(cb.name)}を開く</button></div></div>`;
+    }).join("");
   }
   /* 開始待ち：予定日を過ぎても播種・定植が未実施。後続の作業はまだ出さない */
   if(pending.length){
@@ -1588,7 +1652,14 @@ function renderSettings(){
         出典：<a href="${esc(rg.url)}" target="_blank" rel="noopener">${esc(rg.source)}</a><br>${esc(rg.note)}<br>
         霜に弱い作物の植え付けは「終霜から14日後」以降、掘り上げなどは「初霜の7日前」まで、を目安にしています（アプリの暫定の安全幅）。</div></div>
   </div></div>`;
-  h += `<div class="sect"><div class="muted" style="font-size:11.5px">畑ノート ${APP_VERSION}・作物データ ${DATA.crops.length}種（crops.json）</div></div>`;
+  h += `<div class="sect"><div class="card"><div class="setrow">
+    <div class="lbl">この端末のアプリ</div>
+    <div class="desc">畑ノート <b>${APP_VERSION}</b>・作物データ ${DATA.crops.length}種（crops.json）${newVer?`<br><b>新しい版（${esc(newVer)}）が出ています。</b>`:""}</div>
+    <div class="themechips">${newVer
+      ? `<button class="btn" data-act="update-now">新しい版を取り込む</button>`
+      : `<button class="chip" data-act="update-check">更新を確認</button>`}</div>
+    <div class="desc" style="margin-top:6px">GitHubに新しい版を上げても、ホーム画面のアプリは前の版を抱えたままのことがあります。そのときはここから取り込めます。作付けの記録は消えません。</div>
+  </div></div></div>`;
   $("#panel-set").innerHTML = h;
   document.querySelectorAll("[data-bedlen],[data-bedwid]").forEach(inp=>inp.addEventListener("change", ()=>{
     const id = inp.dataset.bedlen || inp.dataset.bedwid, key = inp.dataset.bedlen ? "lengthCm" : "widthCm";
@@ -1635,13 +1706,48 @@ function closeSheet(){ $("#backdrop").hidden = true; sheetCtx = null; ps = null;
 const warnHtml = ws => ws.map(w=>`<div class="warn ${w.level==="red"||w.level==="error"?"":w.level}"><span class="wt">${esc(w.title)}</span>${w.text}</div>`).join("");
 
 /* ---------- 実施日の選択：普段は「今日」のまま1タップ、まとめて記録するときだけ変える ---------- */
-function doneDateHtml(id, label){
+function doneDateHtml(id, label, def, defLabel){
   const t = fmtD(today()), y = fmtD(addD(today(),-1));
+  const v = def && def <= t ? def : t;
+  const chip = (d, name) => `<button class="chip${v===d?" sel":""}" data-act="dd" data-v="${d}">${esc(name)}</button>`;
   return `<div class="donedate" data-for="${id}"><span class="dd-label">${esc(label||"実施日")}</span>
-    <button class="chip sel" data-act="dd" data-v="${t}">今日</button><button class="chip" data-act="dd" data-v="${y}">昨日</button>
-    <input type="date" id="${id}" value="${t}" max="${t}" aria-label="${esc(label||"実施日")}"></div>`;
+    ${v!==t && v!==y ? chip(v, `${defLabel?defLabel+" ":""}${parseD(v).getMonth()+1}/${parseD(v).getDate()}`) : ""}${chip(t,"今日")}${chip(y,"昨日")}
+    <input type="date" id="${id}" value="${v}" max="${t}" aria-label="${esc(label||"実施日")}"></div>`;
 }
 function pickedDate(id){ const v = ($("#"+id)||{}).value, t = fmtD(today()); return v && v <= t ? v : t; }
+
+/* ---------- 作付けの終了（終わった日を選ぶ） ----------
+   畑から片づけた日を記録する。今日とは限らない（先週収穫して、今日アプリを開いた、が普通） */
+let fin = null;
+/* 終わった日の初期値：最後の収穫の記録 →（なければ）最後の記録 → 今日 */
+function finishDefault(p){
+  const hs = state.logs.filter(l=>l.plantingId===p.id && l.type==="harvest").map(l=>l.date).sort();
+  const any = state.logs.filter(l=>l.plantingId===p.id).map(l=>l.date).sort();
+  const d = hs.pop() || any.pop() || fmtD(today());
+  return d > fmtD(today()) ? fmtD(today()) : d;
+}
+function openFinish(pid){
+  const p = state.plantings.find(x=>x.id===pid); if(!p) return;
+  fin = { pid, def:finishDefault(p) };
+  const c = cropById(p.cropId), hs = state.logs.filter(l=>l.plantingId===p.id && l.type==="harvest");
+  const t = fmtD(today());
+  showSheet(`<h3>${esc(c.name)}の作付けを終了</h3>
+    <div class="sheet-sub">${esc(bedOf(p).name)}・${esc(c.start.action)} ${jp(parseD(p.date))}${hs.length?`／収穫の記録 ${hs.length}件`:""}</div>
+    <div class="warn note"><span class="wt">終了にすると</span>この場所が空き、やることからも消えます。記録と連作の履歴は残ります。あとから「作付けを再開」で戻せます。</div>
+    ${doneDateHtml("fin-date", "畑から片づけた日", fin.def, fin.def!==t && hs.length ? "最後の収穫" : null)}
+    <div class="sheet-sub" style="margin-top:6px">連作の履歴は、ここで入れた日から数えます。実際に片づけた日を入れてください。</div>
+    <div class="sheet-foot"><button class="btn" data-act="close">やめる</button><button class="btn primary" data-act="fin-save">終了にする</button></div>`);
+  wireDoneDate($("#sheet"));
+}
+function saveFinish(){
+  const p = state.plantings.find(x=>x.id===fin.pid); if(!p) return;
+  const d = pickedDate("fin-date");
+  if(d < p.date){ alert(`${cropById(p.cropId).name}を始めた日（${jp(parseD(p.date))}）より前にはできません。`); return; }
+  p.status = "done"; p.endDate = d;
+  (p.spots||[]).forEach((sp,i)=>{ if(!sp.endDate) p.spots[i] = Object.assign({}, sp, {endDate:d}); });
+  putPlanting(p); closeSheet(); renderAll();
+  toast(`${cropById(p.cropId).name}の作付けを${jp(parseD(d))}で終了にしました`);
+}
 function wireDoneDate(root){
   (root||document).querySelectorAll(".donedate input[type=date]").forEach(inp=>inp.addEventListener("change", ()=>{
     inp.closest(".donedate").querySelectorAll("[data-act=dd]").forEach(b=>b.classList.toggle("sel", b.dataset.v===inp.value));
@@ -2621,14 +2727,16 @@ function openPlanting(pid){
       ${isDone&&p.endDate?`〜 ${jp(parseD(p.endDate))} 終了`:isDone?"":`・終了見込み ${jp(expectedEnd(p))}`}${hs.length?`／収穫 ${hDays}日・計<b>${total}${esc(c.unit)}</b>`:""}</div>
     ${isDone?`<div class="sheet-sub" style="margin-top:6px"><b>終了済み</b>（連作の履歴として残っています）</div>`:""}
     ${p.memo?`<div class="memo">${esc(p.memo)}</div>`:""}
-    ${bookingConflicts().filter(k=>k.a.id===p.id||k.b.id===p.id).map(k=>{ const o = k.a.id===p.id ? k.b : k.a;
-      return `<div class="warn"><span class="wt">区画の予定が重なっています</span>区画${k.shared.map(slotIdx).join("・")}：<b>${esc(cropById(o.cropId).name)}</b>（${jp(interval(o).from)}〜${jp(interval(o).to)}）と期間が重なります。日付か区画を修正してください。</div>`; }).join("")}`;
+    ${bookingConflicts().filter(k=>k.a.id===p.id||k.b.id===p.id).map(k=>{ const o = k.a.id===p.id ? k.b : k.a, cause = clashCause(k);
+      return `<div class="warn"><span class="wt">区画の予定が重なっています</span>区画${k.shared.map(slotIdx).join("・")}：<b>${esc(cropById(o.cropId).name)}</b>（${jp(interval(o).from)}〜${jp(interval(o).to)}）と期間が重なります。<br><span class="wsub">${cause.text}</span>${cause.stale && cause.stale.id!==p.id ? `<div class="btns" style="margin-top:8px"><button class="btn" data-act="planting" data-p="${cause.stale.id}">${esc(cropById(cause.stale.cropId).name)}を開く</button></div>` : ""}</div>`; }).join("")}`;
   if(!isDone){
     h += `<div class="label-s">次のやること</div>`;
     h += next.length ? `<div class="stack" style="margin-top:8px">${next.map(x=>taskRow(x, x.kind==="normal"&&x.due<t0?"late":diffD(x.due,t0)<=6?"soon":"")).join("")}</div>` : `<div class="empty">予定されている作業はありません。</div>`;
   }
   h += `<div class="label-s">記録（${logs.length}件）</div>`;
   h += logs.length ? `<div class="hist">${groupedLogs(logs).map(histRow).join("")}</div>` : `<div class="empty">まだ記録がありません。</div>`;
+  if(!isDone && hs.length && c.harvestMode==="single")
+    h += `<div class="warn note" style="margin-top:10px"><span class="wt">収穫は記録済みです</span>畑から片づけたら<b>「作付けを終了」</b>を押してください。押すまでは、この場所は使用中のままになります（次の作付けの準備と重なって見えます）。</div>`;
   h += `<div class="sheet-foot">
       ${!isDone && !future && c.tasks.some(t=>t.kind==="harvest") ? `<button class="btn" data-act="quick-harvest" data-p="${p.id}">収穫を記録</button>`:""}
       ${isDone?`<button class="btn" data-act="reopen" data-p="${p.id}">作付けを再開</button>`:`<button class="btn ghost" data-act="finish" data-p="${p.id}">作付けを終了</button>`}
@@ -2731,6 +2839,12 @@ async function handle(act, el, ev){
   switch(act){
     case "open": openTask(d.p, d.t, d.d); break;
     case "close": closeSheet(); break;
+    case "update-now": applyUpdate(); break;
+    case "update-check": {
+      const v = await checkUpdate(true);
+      toast(v==null ? "確認できませんでした（電波のある場所で試してください）" : newVer ? `新しい版（${newVer}）があります` : "最新です");
+      renderSettings(); break;
+    }
     case "bar": {
       if(!ev) break;
       const r = el.getBoundingClientRect(), L = bedDims(d.b).lengthCm;
@@ -2784,13 +2898,8 @@ async function handle(act, el, ev){
       renderAll(); if(d.v) toast("霜の記録を残しました");
       break;
     }
-    case "finish": {
-      const p = P(d.p);
-      if(p && confirm(`${cropById(p.cropId).name}の作付けを終了します。区画が空き、やることからも消えます（記録と連作の履歴は残ります）。`)){
-        p.status = "done"; p.endDate = fmtD(today()); putPlanting(p); closeSheet(); renderAll(); toast("作付けを終了しました");
-      }
-      break;
-    }
+    case "finish": openFinish(d.p); break;
+    case "fin-save": saveFinish(); break;
     case "reopen": {
       const p = P(d.p); if(!p) break;
       const probe = Object.assign({}, p, {status:"active"}); delete probe.endDate;
@@ -2919,6 +3028,7 @@ async function boot(){
   if(!PREVIEW){
     try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
     if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+    checkUpdate();
     refreshFrost();
     if(state.sync.url) sync(true);
   }

@@ -5,7 +5,7 @@
    ============================================================= */
 "use strict";
 
-const APP_VERSION = "5.13";
+const APP_VERSION = "5.14";
 const PREVIEW = !!window.HATAKE_PREVIEW;      // claude.ai 上のプレビュー版
 const STORE_KEY = "hatake-note-v4";
 let DATA = null;
@@ -24,6 +24,8 @@ function addD(d,n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function diffD(a,b){ return Math.round((a-b)/MS); }
 const maxD = (a,b) => a > b ? a : b, minD = (a,b) => a < b ? a : b;
 function jp(d){ return (d.getMonth()+1)+"/"+d.getDate()+"("+"日月火水木金土"[d.getDay()]+")"; }
+/* 今年でなければ年も出す（去年の作付けと今年のものを取り違えないため） */
+function jpy(d){ return d.getFullYear()===today().getFullYear() ? jp(d) : `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
 function uid(p){ return p + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function jun(code){ const m = parseInt(code,10), k = code.replace(/[0-9]/g,""); return { month:m, day: k==="上"?1 : k==="中"?11 : 21 }; }
 function junEndDate(code, year){
@@ -373,7 +375,8 @@ function emptyState(){
     v:4, plantings:[], logs:[], frost:[],
     settings:{ seasonOffset:{spring:0,summer:0,autumn:0,winter:0}, cropOffset:{}, myCrops:null, myCropsTouched:false, _v:0 },
     sync:{ url:"", outbox:[], lastOk:0, lastPull:0, lastErr:"", changeSeq:0, conflicts:0 },
-    asked:{}, sample:false
+    asked:{}, sample:false,
+    unknown:[]            // 作物データ（crops.json）に無い作物の作付け。消さずに別に置き、作物が戻れば自動で戻す
   };
 }
 function load(){
@@ -385,7 +388,7 @@ function load(){
   state.settings = Object.assign(base.settings, state.settings||{});
   state.settings.seasonOffset = Object.assign({spring:0,summer:0,autumn:0,winter:0}, state.settings.seasonOffset||{});
   state.sync = Object.assign(base.sync, state.sync||{});
-  state.frost = state.frost || []; state.asked = state.asked || {};
+  state.frost = state.frost || []; state.asked = state.asked || {}; state.unknown = Array.isArray(state.unknown) ? state.unknown : [];
   if(!Array.isArray(state.settings.myCrops) || !state.settings.myCropsTouched) state.settings.myCrops = DATA.crops.map(c=>c.id);
   else {
     /* 作物データに新しく増えた野菜は「使う」に入れる。自分で外した野菜（既に知っている野菜）は外したまま */
@@ -395,7 +398,17 @@ function load(){
   }
   state.settings.myCropsKnown = DATA.crops.map(c=>c.id);
   state.plantings.forEach(p=>{ if(!p.bedId) p.bedId = slotBed((p.slots||[])[0]); if(!Array.isArray(p.slots)) p.slots = []; });
+  reconcileUnknown();
 }
+/* 作物データに無い作物の作付けを plantings から外し（画面が落ちないように）、作物が戻っていれば plantings に戻す */
+function reconcileUnknown(){
+  const keep = [], lost = [];
+  state.plantings.forEach(p=>(cropById(p.cropId) ? keep : lost).push(p));
+  const back = state.unknown.filter(p=>cropById(p.cropId));
+  state.plantings = keep.concat(back);
+  state.unknown = state.unknown.filter(p=>!cropById(p.cropId)).concat(lost);
+}
+const unknownIds = () => new Set(state.unknown.map(p=>p.id));
 function save(){ lsSet(STORE_KEY, JSON.stringify(state)); }
 
 function seedSample(){
@@ -475,6 +488,14 @@ function putSettings(patch){
    ============================================================= */
 let flushTimer = null, busy = false;
 const TABLE_LIST = ["plantings","logs","frost","settings"];
+/* 保存先を変えたとき：行の版番号は前のシートのものなので全部 0 に戻す（＝新しいシートへ送る側に回る） */
+function resetSyncVersions(){
+  ["plantings","logs","frost"].forEach(t=>state[t].forEach(x=>{ x._v = 0; }));
+  state.unknown.forEach(x=>{ x._v = 0; });
+  state.settings._v = 0;
+  state.sync.outbox.forEach(o=>{ o.baseVersion = 0; });
+  state.sync.changeSeq = 0; state.sync.lastPull = 0; state.sync.lastOk = 0;
+}
 const localRows = t => t==="settings" ? [state.settings] : state[t];
 
 function rowFor(table, o, deleted){
@@ -523,7 +544,11 @@ function fromRow(table, r){
 function applyRemote(table, r){
   const o = fromRow(table, r);
   if(table==="settings"){ Object.assign(state.settings, o); return; }
-  if(table==="plantings" && !cropById(o.cropId)) return;
+  if(table==="plantings" && !cropById(o.cropId)){            // 知らない作物：捨てずに別置き（crops.json に戻れば load() で戻る）
+    const u = state.unknown, k = u.findIndex(x=>x.id===o.id);
+    if(r.deletedAt){ if(k>=0) u.splice(k,1); } else if(k<0) u.push(o); else u[k] = o;
+    return;
+  }
   const arr = state[table], i = arr.findIndex(x=>x.id===o.id);
   if(r.deletedAt){ if(i>=0) arr.splice(i,1); return; }
   if(table==="plantings" && o._noSpotsCol){         // 列がないシートから来た行で、端末側の位置を消さない
@@ -595,6 +620,11 @@ async function pull(){
   const pending = new Set(state.sync.outbox.map(o=>o.table+"|"+o.id));
   TABLE_LIST.forEach(t=>{
     const remote = d[t] || [], seen = new Set();
+    if(t!=="settings" && !remote.length && state[t].length){
+      // シートのタブが空：新しいシートにつなぎ替えた／タブを作り直した など。端末の記録を消さず、送り直す
+      state[t].forEach(x=>{ if(!pending.has(t+"|"+x.id)){ x._v = 0; queueOp(t, x); } });
+      return;
+    }
     remote.forEach(r=>{
       const id = String(r.id); seen.add(id);
       if(pending.has(t+"|"+id)) return;                      // 未送信の変更がある行は、送ってから決める
@@ -1227,7 +1257,7 @@ function offsetSuggestions(){
   state.plantings.forEach(p=>{
     const c = cropById(p.cropId); if(!c) return;
     const ht = c.tasks.find(t=>t.kind==="harvest"); if(!ht) return;
-    const hs = state.logs.filter(l=>l.plantingId===p.id && l.type==="harvest").sort((a,b)=>a.date<b.date?-1:1);
+    const hs = state.logs.filter(l=>l.plantingId===p.id && l.type==="harvest" && l.qty > 0).sort((a,b)=>a.date<b.date?-1:1);   // 量0の記録は初収穫と見なさない
     if(!hs.length) return;
     const base = actualStart(p) || parseD(p.date);
     const std = ht.trigger.type==="offset" ? addD(base, ht.trigger.days) : resolveCal(ht.trigger.when, base);
@@ -1316,6 +1346,12 @@ function renderWeek(){
 
   let h = "";
   if(state.sample) h += `<div class="banner">サンプルの作付けで表示しています。<button class="btn" data-act="clear-sample">消して自分の畑を登録</button></div>`;
+  if(state.unknown.length){
+    const ids = [...new Set(state.unknown.map(p=>p.cropId))];
+    h += `<div class="warn amber"><span class="wt">作物データに無い作物の作付けが${state.unknown.length}件あります</span>
+      作物の id：<code>${ids.map(esc).join("</code>・<code>")}</code>。crops.json にこの id の作物が無いため、畑・やること・記録の表示から外しています（記録は消していません）。
+      crops.json の id を元に戻すか作物を追加すると、そのまま戻ります。</div>`;
+  }
 
   /* 昨夜の霜：翌朝に1回だけ聞く */
   const yday = fmtD(addD(t0,-1)), ob = state.frost.find(f=>f.id===yday);
@@ -1519,7 +1555,8 @@ function renderLog(){
   if(!logYear || !yl.includes(logYear)) logYear = t0.getFullYear();
 
   let h = "";
-  const recent = groupedLogs(state.logs).sort((a,b)=> (b.updatedAt-a.updatedAt) || (a.date<b.date?1:-1)).slice(0,5);
+  const hidden = unknownIds();
+  const recent = groupedLogs(state.logs.filter(l=>!hidden.has(l.plantingId))).sort((a,b)=> (b.updatedAt-a.updatedAt) || (a.date<b.date?1:-1)).slice(0,5);
   h += `<div class="sect"><div class="sect-head"><h2>最近の記録</h2></div><div class="card">`;
   h += recent.length ? `<div class="hist" style="border-top:0;margin-top:0">${recent.map(histRow).join("")}</div><div class="hint" style="margin-top:6px">タップで修正・取り消し</div>`
                      : `<div class="empty">まだ記録がありません。やることを「完了」にすると、ここに残ります。</div>`;
@@ -1863,8 +1900,16 @@ function completeTask(){
   if(!sheetCtx) return;
   const {pid, tid, isH, isStart} = sheetCtx;
   const d = pickedDate("done-date");
+  let qty = 0;
+  if(isH){
+    const q = $("#q-in"), raw = String((q||{}).value||"").trim();
+    if(raw===""){
+      if(!confirm("収穫量が入っていません。量は 0 のまま、収穫した日だけ記録しますか？")){ if(q) q.focus(); return; }
+    }
+    qty = parseInt(raw,10)||0;
+  }
   const before = bookingConflicts().length;
-  if(isH) putLog({id:uid("l"), plantingId:pid, taskId:tid, date:d, type:"harvest", qty: parseInt(($("#q-in")||{}).value,10)||0});
+  if(isH) putLog({id:uid("l"), plantingId:pid, taskId:tid, date:d, type:"harvest", qty});
   else putLog({id:uid("l"), plantingId:pid, taskId:tid, date:d, type:"work"});
   closeSheet(); renderAll();
   if(isStart && bookingConflicts().length > before) toast("開始が遅れたため、区画の予定が次の作付けと重なりました");
@@ -2065,7 +2110,8 @@ function batchesFor(bedId, cropId, date, variety){
     && hasExactSpots(p) && !(p.slots||[]).length && startDateOf(p)===date && (p.variety||"").trim()===(variety||"").trim());
 }
 function latestBatch(bedId, cropId){
-  return state.plantings.filter(p=>p.status!=="done" && p.cropId===cropId && bedOf(p) && bedOf(p).id===bedId && hasExactSpots(p) && !(p.slots||[]).length)
+  const t0 = today();   // 終わりの見込みを過ぎた作付け（去年の終了し忘れ）は、初期値の元にしない
+  return state.plantings.filter(p=>p.status!=="done" && p.cropId===cropId && bedOf(p) && bedOf(p).id===bedId && hasExactSpots(p) && !(p.slots||[]).length && expectedEnd(p) >= t0)
     .sort((a,b)=>a.date<b.date?1:-1)[0] || null;
 }
 /* 株の位置。置いたときの株間（推奨）をスナップショットとして持たせる */
@@ -2238,7 +2284,7 @@ function renderPlaceSheet(){
         + recHtml(rec, here) + (here ? "" : `<div class="btns" style="margin-top:-4px;margin-bottom:8px"><button class="btn small" data-act="pp-rec">この畝のおすすめの位置へ</button></div>`); })()}
     ${pp.note ? `<div class="warn note"><span class="wt">位置の確認</span>${pp.note}</div>` : ""}
     ${bs.length ? `<div class="label-s">どの作付けにするか</div><div class="startchoice" role="radiogroup">
-      ${bs.map(b=>`<label><input type="radio" name="pp-add" value="${b.id}"${pp.add===b.id?" checked":""}> ${esc(c.name)}（${jp(parseD(startDateOf(b)))}${b.variety?`・${esc(b.variety)}`:""}・${b.count}株）に${addWhat()}追加</label>`).join("")}
+      ${bs.map(b=>`<label><input type="radio" name="pp-add" value="${b.id}"${pp.add===b.id?" checked":""}> ${esc(c.name)}（${jpy(parseD(startDateOf(b)))}${b.variety?`・${esc(b.variety)}`:""}・${b.count}株）に${addWhat()}追加</label>`).join("")}
       <label><input type="radio" name="pp-add" value=""${pp.add?"":" checked"}> 新しい作付けにする</label></div>` : ""}
     ${pp.kind==="band" ? `<div class="field" style="margin-top:8px"><label for="pp-count">株数・本数（任意）</label><input type="number" id="pp-count" min="0" value="${esc(String(pp.count))}" inputmode="numeric"></div>` : ""}
     ${batch ? `<div class="hint" style="margin-top:6px">追加する分は、この作付けの${esc(c.start.action)}日・品種・やることをそのまま使います。</div>` : `
@@ -2294,7 +2340,7 @@ function openSpot(pid, i){
   const c = cropById(p.cropId), sp = spotsOf(p)[i]; if(!sp) return;
   const what = sp.kind==="plant" ? "" : sp.kind==="group" ? `×${sp.n}${(sp.rows||1)>1?`・${sp.rows}条`:""}${aliveOf(sp)<(sp.n||1)?`（生育中${aliveOf(sp)}）`:""}` : "（帯）";
   showSheet(`<h3>${esc(iconOf(c))} ${esc(c.name)}${what}（${esc(spotLabel(sp))}）</h3>
-    <div class="sheet-sub">${esc(bedOf(p).name)}・${jp(parseD(startDateOf(p)))}${p.variety?`・${esc(p.variety)}`:""}・この作付けは${p.count}株</div>
+    <div class="sheet-sub">${esc(bedOf(p).name)}・${jpy(parseD(startDateOf(p)))}${p.variety?`・${esc(p.variety)}`:""}・この作付けは${p.count}株</div>
     <div class="sidebtns">
       <button class="btn" data-act="spot-side" data-p="${p.id}" data-i="${i}" data-side="left">◀ 左に植える</button>
       <button class="btn" data-act="spot-side" data-p="${p.id}" data-i="${i}" data-side="right">右に植える ▶</button>
@@ -2372,7 +2418,7 @@ function renderSeqSheet(top){
     <div class="btns" style="margin-top:6px"><button class="btn small" data-act="sq-undo"${lay.length?"":" disabled"}>1つ戻す</button><button class="btn small" data-act="sq-clear"${lay.length?"":" disabled"}>全部消す</button></div>
     <div class="label-s">作物（タップした順に右へ並びます）</div>
     <div class="seqpal">${my.map(c=>`<button class="seqbtn" data-act="sq-add" data-c="${c.id}"><span class="si">${esc(iconOf(c))}</span><span class="sn">${esc(c.name)}</span></button>`).join("")}</div>
-    ${plan.length ? `<div class="label-s">登録の内容</div><div class="seqplan">${plan.map(g=>`<div class="planrow"><div>${esc(iconOf(g.crop))} <b>${esc(g.crop.name)}</b> ${g.n?`${g.n}株`:""}${g.spots.some(s=>s.kind==="band")?`帯${g.spots.filter(s=>s.kind==="band").length}本`:""} → ${g.batch?`既存の作付け（${jp(parseD(startDateOf(g.batch)))}${g.batch.variety?`・${esc(g.batch.variety)}`:""}・${g.batch.count}株）に追加`:"新しい作付け"}</div>
+    ${plan.length ? `<div class="label-s">登録の内容</div><div class="seqplan">${plan.map(g=>`<div class="planrow"><div>${esc(iconOf(g.crop))} <b>${esc(g.crop.name)}</b> ${g.n?`${g.n}株`:""}${g.spots.some(s=>s.kind==="band")?`帯${g.spots.filter(s=>s.kind==="band").length}本`:""} → ${g.batch?`既存の作付け（${jpy(parseD(startDateOf(g.batch)))}${g.batch.variety?`・${esc(g.batch.variety)}`:""}・${g.batch.count}株）に追加`:"新しい作付け"}</div>
         <input type="text" class="sqv" data-c="${g.cropId}" value="${esc(sq.variety[g.cropId]||"")}" placeholder="品種（任意）" autocomplete="off" aria-label="${esc(g.crop.name)}の品種"></div>`).join("")}</div>
       <label class="checkline"><input type="checkbox" id="sq-join"${sq.join?" checked":""}> 同じ作物・同じ日・同じ品種の作付けがこの畝にあれば、そこへ追加する</label>` : ""}
     ${notes.length ? `<div class="warn note"><span class="wt">位置の確認</span>${uniq(notes).join("<br>")}</div>` : ""}
@@ -2811,14 +2857,22 @@ function openPlantingEdit(pid){
   pe = { pid, slots:slotsTouched(p), date:p.date, count:p.count, memo:p.memo||"" };
   renderPlantingEdit(true);
 }
+/* 修正画面の検査。畝の中に位置で置いた作付けで区画を変えていなければ、区画ではなく実際の位置で判定する
+   （区画で判定すると、同じ区画にいる別の作物と「使用中」でぶつかり、メモや株数も直せなくなる） */
+function peSlotsChanged(p){ return pe.slots.slice().sort((a,b)=>slotIdx(a)-slotIdx(b)).join()!==slotsTouched(p).join(); }
+function peChecks(p){
+  if(hasExactSpots(p) && !peSlotsChanged(p)) return checkAt(p.spots, bedOf(p).id, p.cropId, pe.date, p.id);
+  return checkPlanting(pe.slots, p.cropId, pe.date, p.id);
+}
 function renderPlantingEdit(top){
   const p = state.plantings.find(x=>x.id===pe.pid); if(!p) return;
   const c = cropById(p.cropId), bed = bedOf(p), bedId = bed.id;
   const nLogs = state.logs.filter(l=>l.plantingId===p.id).length;
-  const ws = checkPlanting(pe.slots, p.cropId, pe.date, p.id).filter(w=>w.level!=="good");
+  const ws = peChecks(p).filter(w=>w.level!=="good");
   const h = `<button class="linkback" data-act="planting" data-p="${p.id}">← 戻る</button>
     <h3>${esc(c.name)}を修正</h3><div class="sheet-sub">${esc(bed.name)}</div>
     <div class="label-s">区画</div>
+    ${hasExactSpots(p) ? `<div class="hint" style="margin-top:4px">この作付けは畝の中の位置（${esc(posLabel(p))}）で置いてあります。区画を選び直すと位置は消えて区画単位になります。位置だけ直すなら、「畑」の畝のバーで株をタップ →「位置を直す」を使ってください。</div>` : ""}
     <div class="picker">${slotsOf(bedId).map(s=>{
       const free = slotFree(s, pe.date, p.cropId, p.id), sel = pe.slots.includes(s);
       return `<button class="slot${sel?" sel":""}${!free?" occ":""}" data-act="pe-slot" data-s="${s}" aria-pressed="${sel}"${!free&&!sel?" disabled":""}>
@@ -3017,13 +3071,13 @@ async function handle(act, el, ev){
     case "pe-save": {
       const p = P(pe.pid); if(!p || !pe.slots.length) break;
       syncPe();
-      const ws = checkPlanting(pe.slots, p.cropId, pe.date, p.id);
+      const ws = peChecks(p);
       if(blocking(ws)) break;
       const warn = ws.filter(w=>w.level==="red"||w.level==="amber");
       if(warn.length && !confirm(warn.map(w=>w.title).join("・")+"があります。このまま保存しますか？")) break;
       const nextSlots = pe.slots.slice().sort((a,b)=>slotIdx(a)-slotIdx(b));
       // 区画を変えたときだけ位置を区画に置き換える（変えていなければ、畝の中の位置はそのまま残す）
-      if(nextSlots.join()!==slotsTouched(p).join()){ p.slots = nextSlots; delete p.spots; delete p.spotsRaw; }
+      if(peSlotsChanged(p)){ p.slots = nextSlots; delete p.spots; delete p.spotsRaw; }
       p.bedId = slotBed(nextSlots[0]);
       p.date = pe.date; p.count = pe.count; p.memo = pe.memo.trim();
       putPlanting(p); renderAll(); openPlanting(p.id); toast("保存しました"); break;
@@ -3045,6 +3099,11 @@ async function handle(act, el, ev){
     case "sync-connect": {
       const url = ($("#set-url").value||"").trim();
       if(url && !/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){ alert("Apps Script のウェブアプリURL（https://script.google.com/macros/s/…/exec）を貼ってください。"); break; }
+      if(url && state.sync.url && url !== state.sync.url){
+        const n = state.plantings.length + state.logs.length;
+        if(n && !confirm(`保存先のURLを変えます。この端末の記録（${n}件）は新しいスプレッドシートに送られ、そちらにある記録と合わせて使います。よろしいですか？`)){ $("#set-url").value = state.sync.url; break; }
+      }
+      if(url !== state.sync.url) resetSyncVersions();   // 別のシートでは版番号が通用しない。全部「未同期」にして送り直す
       state.sync.url = url; state.sync.lastErr = ""; save();
       if(!url){ renderAll(); break; }
       el.disabled = true; el.textContent = "確認中…";
